@@ -227,6 +227,7 @@ Prerequisites:
 ## Docs
 
 - Architecture draft: `docs/architecture.md`
+- Recovery runbooks: `docs/recovery.md`
 - Implementation checklist: `docs/todo.md`
 
 ## Next steps

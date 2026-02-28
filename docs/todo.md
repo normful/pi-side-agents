@@ -80,7 +80,7 @@
 - [ ] Retry policies for transient tmux/worktree failures.
 - [ ] Graceful shutdown and cleanup on parent exit.
 - [x] Concurrency guards for registry writes/reads.
-- [ ] Documentation for recovery runbooks.
+- [x] Documentation for recovery runbooks (`docs/recovery.md`).
 
 **Exit criteria**: robust behavior under crash/restart scenarios.
 
