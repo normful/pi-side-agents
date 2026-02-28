@@ -41,16 +41,60 @@ function tailLines(text, count) {
 	return lines.slice(-count);
 }
 
+function stripTerminalNoise(text) {
+	return text
+		.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
+		.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
+		.replace(/\r/g, "")
+		.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+}
+
+function truncateWithEllipsis(text, maxChars) {
+	if (maxChars <= 0) return "";
+	if (text.length <= maxChars) return text;
+	if (maxChars === 1) return "…";
+	return `${text.slice(0, maxChars - 1)}…`;
+}
+
+function summarizeTask(task, maxChars = 220) {
+	const collapsed = stripTerminalNoise(task).replace(/\s+/g, " ").trim();
+	return truncateWithEllipsis(collapsed, maxChars);
+}
+
+function sanitizeBacklogLines(lines, lineMax = 240, totalMax = 2400) {
+	const out = [];
+	let remaining = totalMax;
+
+	for (const raw of lines) {
+		if (remaining <= 0) break;
+		const cleaned = stripTerminalNoise(raw).trimEnd();
+		if (cleaned.length === 0) continue;
+
+		const line = truncateWithEllipsis(cleaned, lineMax);
+		if (line.length <= remaining) {
+			out.push(line);
+			remaining -= line.length + 1;
+			continue;
+		}
+
+		out.push(truncateWithEllipsis(line, remaining));
+		remaining = 0;
+		break;
+	}
+
+	return out;
+}
+
 /**
  * Minimal re-implementation of waitForAny fail-fast path.
  * Reads a registry JSON at stateRoot/.pi/parallel-agents/registry.json.
  *
  * Returns { ok: false, error } immediately when all IDs are unknown on the
- * first poll cycle.  Resolves with the matching agent payload when a terminal
- * state is detected.
+ * first poll cycle. Resolves with the matching agent payload when one reaches
+ * a default wait target state.
  *
  * NOTE: This does NOT poll — it is synchronous to make unit testing
- * straightforward.  The real extension polls with 1 s sleeps; this validates
+ * straightforward. The real extension polls with 1 s sleeps; this validates
  * only the first-pass fail-fast logic.
  *
  * @param {string} stateRoot
@@ -64,6 +108,8 @@ async function waitForAnyFirstPass(stateRoot, ids) {
 	if (uniqueIds.length === 0) {
 		return { ok: false, error: "No agent ids were provided" };
 	}
+
+	const waitStates = new Set(["waiting_user", "done", "failed", "crashed"]);
 
 	const registryPath = join(stateRoot, ".pi", "parallel-agents", "registry.json");
 	let registry = { agents: {} };
@@ -80,7 +126,7 @@ async function waitForAnyFirstPass(stateRoot, ids) {
 			unknownOnFirstPass.push(id);
 			continue;
 		}
-		if (isTerminalStatus(record.status)) {
+		if (waitStates.has(record.status)) {
 			return {
 				ok: true,
 				agent: record,
@@ -96,8 +142,8 @@ async function waitForAnyFirstPass(stateRoot, ids) {
 		};
 	}
 
-	// All IDs known but none terminal — caller would need to poll.
-	return { ok: false, error: "no terminal agent found (poll required)" };
+	// All IDs known but none in target state — caller would need to poll.
+	return { ok: false, error: "no target-state agent found (poll required)" };
 }
 
 // ---------------------------------------------------------------------------
@@ -157,6 +203,30 @@ test("tailLines — requesting more lines than exist returns all", () => {
 
 test("tailLines — empty string returns empty array", () => {
 	assert.deepEqual(tailLines("", 5), []);
+});
+
+test("sanitizeBacklogLines — strips ANSI/control sequences and truncates lines", () => {
+	const noisy = [
+		"\u001b[31mERROR\u001b[0m something happened",
+		"x".repeat(400),
+		"\u001b]0;title\u0007ok",
+	];
+	const cleaned = sanitizeBacklogLines(noisy, 80, 200);
+
+	assert.ok(cleaned.length > 0, "expected sanitized lines");
+	assert.ok(cleaned[0].startsWith("ERROR"), `expected ANSI stripped line, got: ${cleaned[0]}`);
+	assert.ok(cleaned[1].endsWith("…"), "long line should be truncated with ellipsis");
+	for (const line of cleaned) {
+		assert.ok(!line.includes("\u001b"), `line must not contain escape chars: ${JSON.stringify(line)}`);
+	}
+});
+
+test("summarizeTask — collapses whitespace and truncates", () => {
+	const task = "Line one\n\n\tline two with details " + "x".repeat(400);
+	const summary = summarizeTask(task, 120);
+	assert.ok(!summary.includes("\n"), "summary should be single-line");
+	assert.ok(summary.length <= 120, `summary too long: ${summary.length}`);
+	assert.ok(summary.endsWith("…"), "summary should be truncated with ellipsis");
 });
 
 // ---------------------------------------------------------------------------
@@ -266,6 +336,24 @@ test("waitForAny — mix of known+unknown ids fails fast on unknown", async (t) 
 	assert.ok(result.error.includes("a-9999"), `error should name a-9999, got: ${result.error}`);
 });
 
+test("waitForAny — waiting_user agent is detected on first pass", async (t) => {
+	const now = new Date().toISOString();
+	const stateRoot = await makeTempRegistry(t, {
+		"a-0001": {
+			id: "a-0001",
+			task: "some task",
+			status: "waiting_user",
+			startedAt: now,
+			updatedAt: now,
+		},
+	});
+
+	const result = await waitForAnyFirstPass(stateRoot, ["a-0001"]);
+	assert.strictEqual(result.ok, true, "should detect waiting_user as default target state");
+	assert.strictEqual(result.agent?.id, "a-0001");
+	assert.strictEqual(result.agent?.status, "waiting_user");
+});
+
 test("waitForAny — terminal agent is detected on first pass", async (t) => {
 	const now = new Date().toISOString();
 	const stateRoot = await makeTempRegistry(t, {
@@ -285,7 +373,7 @@ test("waitForAny — terminal agent is detected on first pass", async (t) => {
 	assert.ok(isTerminalStatus(result.agent?.status), "returned agent must be in terminal status");
 });
 
-test("waitForAny — non-terminal agent with valid registry signals poll-needed", async (t) => {
+test("waitForAny — running agent with valid registry signals poll-needed", async (t) => {
 	const now = new Date().toISOString();
 	const stateRoot = await makeTempRegistry(t, {
 		"a-0001": {
@@ -297,10 +385,9 @@ test("waitForAny — non-terminal agent with valid registry signals poll-needed"
 		},
 	});
 
-	// First pass finds a known-but-not-terminal agent → real impl would poll.
-	// Our test helper returns a sentinel; we just verify the agent was found.
+	// First pass finds a known agent, but not in default target states.
 	const result = await waitForAnyFirstPass(stateRoot, ["a-0001"]);
-	assert.strictEqual(result.ok, false, "non-terminal should not return ok: true yet");
+	assert.strictEqual(result.ok, false, "running should not return ok: true yet");
 	assert.ok(result.error.includes("poll required") || typeof result.error === "string");
 });
 

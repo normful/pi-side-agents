@@ -40,6 +40,22 @@ type AgentStatus =
 	| "failed"
 	| "crashed";
 
+const ALL_AGENT_STATUSES: AgentStatus[] = [
+	"allocating_worktree",
+	"spawning_tmux",
+	"starting",
+	"running",
+	"waiting_user",
+	"finishing",
+	"waiting_merge_lock",
+	"retrying_reconcile",
+	"done",
+	"failed",
+	"crashed",
+];
+
+const DEFAULT_WAIT_STATES: AgentStatus[] = ["waiting_user", "done", "failed", "crashed"];
+
 type AgentRecord = {
 	id: string;
 	parentSessionId?: string;
@@ -136,6 +152,13 @@ function isTerminalStatus(status: AgentStatus): boolean {
 	return status === "done" || status === "failed" || status === "crashed";
 }
 
+const TASK_PREVIEW_MAX_CHARS = 220;
+const BACKLOG_LINE_MAX_CHARS = 240;
+const BACKLOG_TOTAL_MAX_CHARS = 2400;
+const ANSI_CSI_RE = /\x1b\[[0-?]*[ -/]*[@-~]/g;
+const ANSI_OSC_RE = /\x1b\][^\x07]*(?:\x07|\x1b\\)/g;
+const CONTROL_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
+
 function statusShort(status: AgentStatus): string {
 	switch (status) {
 		case "allocating_worktree":
@@ -161,6 +184,70 @@ function statusShort(status: AgentStatus): string {
 		case "crashed":
 			return "crash";
 	}
+}
+
+function stripTerminalNoise(text: string): string {
+	return text.replace(ANSI_CSI_RE, "").replace(ANSI_OSC_RE, "").replace(/\r/g, "").replace(CONTROL_RE, "");
+}
+
+function truncateWithEllipsis(text: string, maxChars: number): string {
+	if (maxChars <= 0) return "";
+	if (text.length <= maxChars) return text;
+	if (maxChars === 1) return "…";
+	return `${text.slice(0, maxChars - 1)}…`;
+}
+
+function summarizeTask(task: string): string {
+	const collapsed = stripTerminalNoise(task).replace(/\s+/g, " ").trim();
+	return truncateWithEllipsis(collapsed, TASK_PREVIEW_MAX_CHARS);
+}
+
+function sanitizeBacklogLines(lines: string[]): string[] {
+	const out: string[] = [];
+	let remaining = BACKLOG_TOTAL_MAX_CHARS;
+
+	for (const raw of lines) {
+		if (remaining <= 0) break;
+		const cleaned = stripTerminalNoise(raw).trimEnd();
+		if (cleaned.length === 0) continue;
+
+		const line = truncateWithEllipsis(cleaned, BACKLOG_LINE_MAX_CHARS);
+		if (line.length <= remaining) {
+			out.push(line);
+			remaining -= line.length + 1;
+			continue;
+		}
+
+		out.push(truncateWithEllipsis(line, remaining));
+		remaining = 0;
+		break;
+	}
+
+	return out;
+}
+
+function normalizeWaitStates(input?: string[]): { values: AgentStatus[]; error?: string } {
+	if (!input || input.length === 0) {
+		return { values: DEFAULT_WAIT_STATES };
+	}
+
+	const trimmed = [...new Set(input.map((value) => value.trim()).filter(Boolean))];
+	if (trimmed.length === 0) {
+		return { values: DEFAULT_WAIT_STATES };
+	}
+
+	const known = new Set<AgentStatus>(ALL_AGENT_STATUSES);
+	const invalid = trimmed.filter((value) => !known.has(value as AgentStatus));
+	if (invalid.length > 0) {
+		return {
+			values: [],
+			error: `Unknown status value(s): ${invalid.join(", ")}`,
+		};
+	}
+
+	return {
+		values: trimmed as AgentStatus[],
+	};
 }
 
 function tailLines(text: string, count: number): string[] {
@@ -700,6 +787,7 @@ function getCurrentTmuxSession(): string {
 function createTmuxWindow(tmuxSession: string, name: string): { windowId: string; windowIndex: number } {
 	const result = runOrThrow("tmux", [
 		"new-window",
+		"-d",
 		"-t",
 		`${tmuxSession}:`,
 		"-P",
@@ -808,7 +896,7 @@ async function getBacklogTail(record: AgentRecord, lines = 10): Promise<string[]
 	if (record.logPath && (await fileExists(record.logPath))) {
 		try {
 			const raw = await fs.readFile(record.logPath, "utf8");
-			const tailed = tailLines(raw, lines);
+			const tailed = sanitizeBacklogLines(tailLines(raw, lines));
 			if (tailed.length > 0) return tailed;
 		} catch {
 			// fall through
@@ -816,7 +904,7 @@ async function getBacklogTail(record: AgentRecord, lines = 10): Promise<string[]
 	}
 
 	if (record.tmuxWindowId && tmuxWindowExists(record.tmuxWindowId)) {
-		return tmuxCaptureTail(record.tmuxWindowId, lines);
+		return sanitizeBacklogLines(tmuxCaptureTail(record.tmuxWindowId, lines));
 	}
 
 	return [];
@@ -1012,7 +1100,7 @@ async function agentCheckPayload(stateRoot: string, agentId: string): Promise<Re
 			tmuxWindowIndex: record.tmuxWindowIndex,
 			worktreePath: record.worktreePath,
 			branch: record.branch,
-			task: record.task,
+			task: summarizeTask(record.task),
 			startedAt: record.startedAt,
 			finishedAt: record.finishedAt,
 			exitCode: record.exitCode,
@@ -1061,11 +1149,43 @@ async function sendToAgent(stateRoot: string, agentId: string, prompt: string): 
 	return { ok: true, message: `Sent prompt to ${agentId}` };
 }
 
-async function waitForAny(stateRoot: string, ids: string[], signal?: AbortSignal): Promise<Record<string, unknown>> {
+async function setChildRuntimeStatus(ctx: ExtensionContext, nextStatus: AgentStatus): Promise<void> {
+	const agentId = process.env[ENV_AGENT_ID];
+	if (!agentId) return;
+
+	const stateRoot = getStateRoot(ctx);
+	await mutateRegistry(stateRoot, async (registry) => {
+		const record = registry.agents[agentId];
+		if (!record) return;
+		if (isTerminalStatus(record.status)) return;
+		if (
+			nextStatus === "waiting_user" &&
+			(record.status === "finishing" || record.status === "waiting_merge_lock" || record.status === "retrying_reconcile")
+		) {
+			return;
+		}
+
+		record.status = nextStatus;
+		record.updatedAt = nowIso();
+	});
+}
+
+async function waitForAny(
+	stateRoot: string,
+	ids: string[],
+	signal?: AbortSignal,
+	waitStatesInput?: string[],
+): Promise<Record<string, unknown>> {
 	const uniqueIds = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
 	if (uniqueIds.length === 0) {
 		return { ok: false, error: "No agent ids were provided" };
 	}
+
+	const waitStates = normalizeWaitStates(waitStatesInput);
+	if (waitStates.error) {
+		return { ok: false, error: waitStates.error };
+	}
+	const waitStateSet = new Set<AgentStatus>(waitStates.values);
 
 	let firstPass = true;
 
@@ -1088,7 +1208,7 @@ async function waitForAny(stateRoot: string, ids: string[], signal?: AbortSignal
 			}
 			const status = (checked.agent as any)?.status as AgentStatus | undefined;
 			if (!status) continue;
-			if (isTerminalStatus(status)) {
+			if (waitStateSet.has(status)) {
 				return checked;
 			}
 		}
@@ -1257,7 +1377,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 			for (const record of records) {
 				const win = record.tmuxWindowIndex !== undefined ? `#${record.tmuxWindowIndex}` : "-";
 				lines.push(`${record.id}  ${record.status}  win:${win}  branch:${record.branch ?? "-"}`);
-				lines.push(`  task: ${record.task}`);
+				lines.push(`  task: ${summarizeTask(record.task)}`);
 				if (record.error) lines.push(`  error: ${record.error}`);
 				if (record.status === "failed" || record.status === "crashed") {
 					failedIds.push(record.id);
@@ -1316,7 +1436,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-start",
 		label: "Agent Start",
 		description:
-			"Start a background parallel child agent in tmux/worktree. The description is used directly as the child's kickoff prompt — no automatic context summary is added, so embed all relevant context in description. Returns { ok: true, id, tmuxWindowId, tmuxWindowIndex, worktreePath, branch, warnings[] } on success, or { ok: false, error } on failure.",
+			"Start a background parallel child agent in tmux/worktree. Lifecycle: child should implement the change, then yield for review (do not auto-/quit); parent/user inspects, asks child to wrap up (finish flow), then quits. The description is sent verbatim (no automatic context summary), so include all necessary context. Returns { ok: true, id, tmuxWindowId, tmuxWindowIndex, worktreePath, branch, warnings[] } on success, or { ok: false, error } on failure.",
 		parameters: Type.Object({
 			description: Type.String({ description: "Task description for child agent kickoff prompt (include all necessary context)" }),
 			model: Type.Optional(Type.String({ description: "Model as provider/modelId (optional)" })),
@@ -1360,7 +1480,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-check",
 		label: "Agent Check",
 		description:
-			"Check a given parallel agent status and return backlog tail (last 10 lines). Returns { ok: true, agent: { id, status, tmuxWindowId, tmuxWindowIndex, worktreePath, branch, task, startedAt, finishedAt?, exitCode?, error?, warnings[] }, backlog: string[] }, or { ok: false, error } if the agent id is unknown or a registry error occurs. Terminal statuses: done | failed | crashed. Non-terminal: allocating_worktree | spawning_tmux | starting | running | waiting_user | finishing | waiting_merge_lock | retrying_reconcile.",
+			"Check a given parallel agent status and return compact recent output. Returns { ok: true, agent: { id, status, tmuxWindowId, tmuxWindowIndex, worktreePath, branch, task, startedAt, finishedAt?, exitCode?, error?, warnings[] }, backlog: string[] }, or { ok: false, error } if the agent id is unknown or a registry error occurs. backlog is sanitized/truncated for LLM safety; task is a compact preview. Statuses: allocating_worktree | spawning_tmux | starting | running | waiting_user | finishing | waiting_merge_lock | retrying_reconcile | done | failed | crashed.",
 		parameters: Type.Object({
 			id: Type.String({ description: "Agent id" }),
 		}),
@@ -1382,13 +1502,19 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-wait-any",
 		label: "Agent Wait Any",
 		description:
-			"Poll until one of the provided agent ids reaches a terminal state (done/failed/crashed), then return that agent's check payload (same shape as agent-check). Returns { ok: false, error } immediately if any id is unknown — unknown agents never become known, so waiting would be pointless. The tool's abort signal is respected between poll cycles (roughly every 1 s).",
+			"Poll until one of the provided agent ids reaches a target state, then return that agent's check payload (same shape as agent-check). Default wait states: waiting_user | done | failed | crashed. Optionally pass states[] to override. Returns { ok: false, error } immediately if any id is unknown on first pass. The tool's abort signal is respected between poll cycles (roughly every 1 s).",
 		parameters: Type.Object({
 			ids: Type.Array(Type.String({ description: "Agent id" }), { description: "Agent ids to wait for" }),
+			states: Type.Optional(
+				Type.Array(Type.String({ description: "Agent status value" }), {
+					description:
+						"Optional target states to wait for. Default: waiting_user, done, failed, crashed",
+				}),
+			),
 		}),
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			try {
-				const payload = await waitForAny(getStateRoot(ctx), params.ids, signal);
+				const payload = await waitForAny(getStateRoot(ctx), params.ids, signal, params.states);
 				return {
 					content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
 				};
@@ -1431,6 +1557,14 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 	pi.on("session_switch", async (_event, ctx) => {
 		await ensureChildSessionLinked(pi, ctx).catch(() => {});
 		ensureStatusPoller(ctx);
+	});
+
+	pi.on("agent_start", async (_event, ctx) => {
+		await setChildRuntimeStatus(ctx, "running").catch(() => {});
+	});
+
+	pi.on("agent_end", async (_event, ctx) => {
+		await setChildRuntimeStatus(ctx, "waiting_user").catch(() => {});
 	});
 
 	pi.on("before_agent_start", async (_event, ctx) => {

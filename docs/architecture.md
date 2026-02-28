@@ -162,9 +162,13 @@ Requires lightweight polling or event update from registry.
 
 ### 4.7 Agent control tools (for swarm orchestration)
 
-1. `agent-start(model?, description)` → `{ id, tmuxWindowId }`
-2. `agent-check(id)` → status + last 10 backlog lines
-3. `agent-wait-any(ids[])` → blocks until one completes, returns check payload
+1. `agent-start(model?, description)` → `{ id, tmuxWindowId, ... }`
+   - `description` is sent verbatim to the child (tool path does not add context summary).
+   - Lifecycle contract: child implements requested changes, then **yields for review** (no immediate `/quit`).
+2. `agent-check(id)` → status + compact backlog tail (sanitized/truncated for safe context usage)
+3. `agent-wait-any(ids[], states?)` → blocks until one agent reaches any target state
+   - default states: `waiting_user | done | failed | crashed`
+   - optional `states` overrides defaults
 4. `agent-send(id, prompt)`
    - `!` prefix: interrupt current thinking/tool call before dispatch
    - `/` prefix: pass command (e.g. `/quit`)
@@ -220,9 +224,11 @@ UI can map these to compact labels/icons.
 4. Parent spawns tmux window and launches child with kickoff prompt.
 5. Parent updates registry to `running` and returns control immediately.
 6. Child performs work; status + backlog tail are queryable.
-7. On completion, child exits; tmux window shows a one-key acknowledgement prompt, then closes.
-8. User reviews, approves, and finish flow runs reconcile loop (`git merge main` in child branch, then serialized parent merge to `main`).
-9. On success, locks are cleared and registry marked `done`; on conflicts, parent merge aborts fast and agent retries from child branch.
+7. When implementation is ready, child yields for review (`waiting_user`) instead of quitting immediately.
+8. Parent/user inspects results and can send follow-ups (`agent-send`) for revisions.
+9. On explicit "wrap up" instruction, child runs finish flow (reconcile + serialized parent merge or PR policy).
+10. After finish success, registry transitions to `done`; child can stay open for post-merge notes.
+11. Parent/user finally quits child (`/quit`), launcher writes exit marker, tmux window closes.
 
 ## 7) Failure and recovery
 

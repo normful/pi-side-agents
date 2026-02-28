@@ -52,6 +52,9 @@ unexpected error, so callers can always do a consistent `payload.ok` check.
 
 Start a background child agent in its own tmux window + git worktree.
 
+Lifecycle expectation: the child should implement changes, then **yield for review** (not auto-`/quit`).
+After review, parent/user asks the child to wrap up (finish flow), then quits it.
+
 **Input**
 
 | Field | Type | Required | Notes |
@@ -84,6 +87,8 @@ Start a background child agent in its own tmux window + git worktree.
 ### `agent-check`
 
 Inspect the current status and recent output of an agent.
+
+`agent.task` is a compact preview; `backlog` is ANSI-stripped + truncated for safe LLM context usage.
 
 **Input**: `{ "id": "a-0001" }`
 
@@ -125,18 +130,23 @@ Inspect the current status and recent output of an agent.
 
 ### `agent-wait-any`
 
-Block until one of the given agents reaches a terminal state, then return its
+Block until one of the given agents reaches a target state, then return its
 `agent-check` payload.
 
-**Input**: `{ "ids": ["a-0001", "a-0002"] }`
+**Input**:
+
+```json
+{ "ids": ["a-0001", "a-0002"], "states": ["waiting_user", "done"] }
+```
+
+`states` is optional. Default wait states are: `waiting_user`, `done`, `failed`, `crashed`.
 
 **Behaviour**
 
 - Polls every ~1 s; respects the tool's abort signal between cycles.
 - Returns `{ ok: false, error }` **immediately** if any `id` is unknown on the
   first poll — unknown agents never become known, so waiting would be pointless.
-- Once one agent is terminal, returns that agent's full check payload (identical
-  shape to `agent-check` success above).
+- Returns as soon as one agent matches any target state, with full `agent-check` payload.
 
 ---
 
@@ -169,12 +179,16 @@ Send a prompt or command to a running child agent's tmux pane.
 ```
 agent-start  → get id
    ↓
-agent-wait-any([id])           ← blocks until done/failed/crashed
+agent-wait-any([id])           ← default waits for waiting_user or terminal
    ↓
 check result.agent.status
-  "done"    → read result.backlog, proceed
-  "failed"  → check result.agent.error, maybe agent-send("! retry with …")
-  "crashed" → inspect logs, restart if needed
+  "waiting_user" → inspect backlog/diff, request fixes or send "wrap up"
+  "done"         → merged/finished; send /quit if no more work
+  "failed"       → inspect error; retry/steer as needed
+  "crashed"      → inspect logs, restart if needed
+
+# Optional second wait after "wrap up":
+agent-wait-any([id], ["done", "failed", "crashed"])
 ```
 
 ---
