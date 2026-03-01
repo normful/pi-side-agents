@@ -93,6 +93,7 @@ type AllocateWorktreeResult = {
 
 type StartAgentParams = {
 	task: string;
+	branchHint?: string;
 	model?: string;
 	includeSummary: boolean;
 };
@@ -466,49 +467,104 @@ async function mutateRegistry(stateRoot: string, mutator: (registry: RegistryFil
 	});
 }
 
-function parseAgentOrdinal(raw: string): number | undefined {
-	const match = raw.match(/^a-(\d+)$/);
-	if (!match) return undefined;
-	const parsed = Number(match[1]);
-	if (!Number.isFinite(parsed)) return undefined;
-	return parsed;
+/** Sanitize a raw string into a kebab-case slug suitable for branch names and agent IDs. */
+function sanitizeSlug(raw: string): string {
+	return raw
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.split("-")
+		.filter(Boolean)
+		.slice(0, 3)
+		.join("-");
 }
 
-function maxAgentOrdinalInRegistry(registry: RegistryFile): number {
-	let max = 0;
-	for (const id of Object.keys(registry.agents)) {
-		const parsed = parseAgentOrdinal(id);
-		if (parsed === undefined) continue;
-		max = Math.max(max, parsed);
+/** Turn a task description into a slug by taking the first 3 meaningful words. */
+function slugFromTask(task: string): string {
+	const stopWords = new Set(["a", "an", "the", "to", "in", "on", "at", "of", "for", "and", "or", "is", "it", "be", "do", "with"]);
+	const words = task
+		.replace(/[^a-zA-Z0-9\s]/g, " ")
+		.split(/\s+/)
+		.map((w) => w.toLowerCase())
+		.filter((w) => w.length > 0 && !stopWords.has(w));
+	const slug = words.slice(0, 3).join("-");
+	return slug || "agent";
+}
+
+/** Generate a slug via LLM, falling back to heuristic extraction from task text. */
+async function generateSlug(ctx: ExtensionContext, task: string): Promise<{ slug: string; warning?: string }> {
+	if (!ctx.model) {
+		return { slug: slugFromTask(task), warning: "No model available for slug generation; used heuristic fallback." };
 	}
-	return max;
+
+	try {
+		const userMessage: Message = {
+			role: "user",
+			content: [
+				{
+					type: "text",
+					text: task,
+				},
+			],
+			timestamp: Date.now(),
+		};
+
+		const apiKey = await ctx.modelRegistry.getApiKey(ctx.model);
+		const response = await complete(
+			ctx.model,
+			{
+				systemPrompt:
+					"Generate a 2-3 word kebab-case slug summarizing the given task. Reply with ONLY the slug, nothing else. Examples: fix-auth-leak, add-retry-logic, update-readme",
+				messages: [userMessage],
+			},
+			{ apiKey, maxTokens: 30 },
+		);
+
+		const raw = response.content
+			.filter((block): block is { type: "text"; text: string } => block.type === "text")
+			.map((block) => block.text)
+			.join("")
+			.trim();
+
+		const slug = sanitizeSlug(raw);
+		if (slug) return { slug };
+
+		return { slug: slugFromTask(task), warning: "LLM returned empty slug; used heuristic fallback." };
+	} catch (err) {
+		return {
+			slug: slugFromTask(task),
+			warning: `Slug generation failed: ${stringifyError(err)}. Used heuristic fallback.`,
+		};
+	}
 }
 
-function maxAgentOrdinalInCheckedOutParallelBranches(repoRoot: string): number {
+/** Collect all agent IDs currently known in the registry or checked out as parallel-agent branches. */
+function existingAgentIds(registry: RegistryFile, repoRoot: string): Set<string> {
+	const ids = new Set<string>(Object.keys(registry.agents));
+
 	const listed = run("git", ["-C", repoRoot, "worktree", "list", "--porcelain"]);
-	if (!listed.ok) return 0;
-
-	let max = 0;
-	for (const line of listed.stdout.split(/\r?\n/)) {
-		if (!line.startsWith("branch ")) continue;
-		const branchRef = line.slice("branch ".length).trim();
-		if (!branchRef || branchRef === "(detached)") continue;
-		const branch = branchRef.startsWith("refs/heads/") ? branchRef.slice("refs/heads/".length) : branchRef;
-		const match = branch.match(/^parallel-agent\/(a-\d+)$/);
-		if (!match) continue;
-		const parsed = parseAgentOrdinal(match[1]);
-		if (parsed === undefined) continue;
-		max = Math.max(max, parsed);
+	if (listed.ok) {
+		for (const line of listed.stdout.split(/\r?\n/)) {
+			if (!line.startsWith("branch ")) continue;
+			const branchRef = line.slice("branch ".length).trim();
+			if (!branchRef || branchRef === "(detached)") continue;
+			const branch = branchRef.startsWith("refs/heads/") ? branchRef.slice("refs/heads/".length) : branchRef;
+			if (branch.startsWith("parallel-agent/")) {
+				ids.add(branch.slice("parallel-agent/".length));
+			}
+		}
 	}
 
-	return max;
+	return ids;
 }
 
-function nextAgentId(registry: RegistryFile, repoRoot: string): string {
-	const maxRegistry = maxAgentOrdinalInRegistry(registry);
-	const maxCheckedOut = maxAgentOrdinalInCheckedOutParallelBranches(repoRoot);
-	const next = Math.max(maxRegistry, maxCheckedOut) + 1;
-	return `a-${String(next).padStart(4, "0")}`;
+/** Deduplicate a slug against existing IDs by appending -2, -3, etc. */
+function deduplicateSlug(slug: string, existing: Set<string>): string {
+	if (!existing.has(slug)) return slug;
+	for (let i = 2; ; i++) {
+		const candidate = `${slug}-${i}`;
+		if (!existing.has(candidate)) return candidate;
+	}
 }
 
 async function writeWorktreeLock(worktreePath: string, payload: Record<string, unknown>): Promise<void> {
@@ -781,10 +837,19 @@ async function allocateWorktree(options: {
 	const chosenRegistered = registered.has(resolve(chosenPath));
 
 	if (chosenRegistered) {
+		// Remember old branch so we can try to clean it up after switching away.
+		const oldBranchResult = run("git", ["-C", chosenPath, "branch", "--show-current"]);
+		const oldBranch = oldBranchResult.ok ? oldBranchResult.stdout.trim() : "";
+
 		run("git", ["-C", chosenPath, "merge", "--abort"]);
 		runOrThrow("git", ["-C", chosenPath, "reset", "--hard", mainHead]);
 		runOrThrow("git", ["-C", chosenPath, "clean", "-fd"]);
 		runOrThrow("git", ["-C", chosenPath, "checkout", "-B", branch, mainHead]);
+
+		// Best-effort cleanup: delete old branch if fully merged (-d, not -D).
+		if (oldBranch && oldBranch !== branch) {
+			run("git", ["-C", repoRoot, "branch", "-d", oldBranch]);
+		}
 	} else {
 		if (await fileExists(chosenPath)) {
 			const entries = await fs.readdir(chosenPath).catch(() => []);
@@ -1261,8 +1326,19 @@ async function startAgent(pi: ExtensionAPI, ctx: ExtensionContext, params: Start
 	try {
 		await ensureDir(getMetaDir(stateRoot));
 
+		let slug: string;
+		if (params.branchHint) {
+			slug = sanitizeSlug(params.branchHint);
+			if (!slug) slug = slugFromTask(params.task);
+		} else {
+			const generated = await generateSlug(ctx, params.task);
+			slug = generated.slug;
+			if (generated.warning) aggregatedWarnings.push(generated.warning);
+		}
+
 		await mutateRegistry(stateRoot, async (registry) => {
-			agentId = nextAgentId(registry, repoRoot);
+			const existing = existingAgentIds(registry, repoRoot);
+			agentId = deduplicateSlug(slug, existing);
 			registry.agents[agentId] = {
 				id: agentId,
 				parentSessionId,
@@ -1808,15 +1884,17 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-start",
 		label: "Agent Start",
 		description:
-			"Start a background parallel child agent in tmux/worktree. Lifecycle: child should implement the change, then yield for review (do not auto-/quit); parent/user inspects, asks child to wrap up (finish flow), then quits. The description is sent verbatim (no automatic context summary), so include all necessary context. Returns { ok: true, id, tmuxWindowId, tmuxWindowIndex, worktreePath, branch, warnings[] } on success, or { ok: false, error } on failure.",
+			"Start a background parallel child agent in tmux/worktree. Lifecycle: child should implement the change, then yield for review (do not auto-/quit); parent/user inspects, asks child to wrap up (finish flow), then quits. The description is sent verbatim (no automatic context summary), so include all necessary context. Provide a short kebab-case branchHint (max 3 words) for the agent's branch name. Returns { ok: true, id, tmuxWindowId, tmuxWindowIndex, worktreePath, branch, warnings[] } on success, or { ok: false, error } on failure.",
 		parameters: Type.Object({
 			description: Type.String({ description: "Task description for child agent kickoff prompt (include all necessary context)" }),
+			branchHint: Type.String({ description: "Short kebab-case branch slug, max 3 words (e.g. fix-auth-leak)" }),
 			model: Type.Optional(Type.String({ description: "Model as provider/modelId (optional)" })),
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			try {
 				const started = await startAgent(pi, ctx, {
 					task: params.description,
+					branchHint: params.branchHint,
 					model: params.model,
 					includeSummary: false,
 				});
