@@ -20,7 +20,7 @@ Keep your main coding flow unblocked by offloading side quests (questions, hotfi
   - `agent-send`
 - Supporting command:
   - `/agents` (lists agents, optionally cleans failed/crashed registry entries, and now offers interactive orphan `.pi/active.lock` reclaim)
-- **`agent-setup` skill** — interactive setup via `/skill:agent-setup` (interviews you about merge policy, main branch, bootstrap hooks, then writes `.pi/parallel-agent-*.sh` and the child finish skill)
+- **`agent-setup` skill** — interactive setup via `/skill:agent-setup` (interviews you about finish policy, main branch, bootstrap hooks, then writes `.pi/parallel-agent-*.sh` and the child finish skill)
 
 ## Status
 
@@ -231,7 +231,7 @@ Prerequisites:
 
 ## Next steps
 
-1. Harden finalize/merge loop conflict UX in child guidance.
+1. Harden finalize/rebase loop conflict UX in child guidance.
 2. Improve runtime status fidelity (`thinking`/`tool`/`pending` detail) from child sessions.
 3. Add optional PR flow to finish skill/script.
 4. Add CI strategy for gated/manual integration test runs.

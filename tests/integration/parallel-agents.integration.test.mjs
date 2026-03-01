@@ -940,9 +940,9 @@ release_lock() {
 trap 'release_lock' EXIT
 
 while true; do
-  echo "[parallel-agent-finish] Reconciling child branch: git merge $MAIN_BRANCH"
-  if ! git merge "$MAIN_BRANCH"; then
-    echo "[parallel-agent-finish] Conflict while merging $MAIN_BRANCH into $BRANCH."
+  echo "[parallel-agent-finish] Reconciling child branch: git rebase $MAIN_BRANCH"
+  if ! git rebase "$MAIN_BRANCH"; then
+    echo "[parallel-agent-finish] Conflict while rebasing $BRANCH onto $MAIN_BRANCH."
     exit 2
   fi
 
@@ -953,7 +953,7 @@ while true; do
     cd "$PARENT_ROOT" || exit 1
     git checkout "$MAIN_BRANCH" >/dev/null 2>&1 || exit 1
     sleep 2
-    git merge --no-edit "$BRANCH"
+    git merge --ff-only "$BRANCH"
   )
   merge_status=$?
   set -e
@@ -961,17 +961,13 @@ while true; do
   release_lock
 
   if [[ "$merge_status" -eq 0 ]]; then
-    echo "[parallel-agent-finish] Success: merged $BRANCH -> $MAIN_BRANCH in parent checkout."
+    echo "[parallel-agent-finish] Success: fast-forwarded $MAIN_BRANCH to include $BRANCH in parent checkout."
     rm -f "$(pwd)/.pi/active.lock" || true
     exit 0
   fi
 
-  echo "[parallel-agent-finish] Parent merge failed (likely $MAIN_BRANCH moved)."
-  echo "[parallel-agent-finish] Aborting parent merge and retrying reconcile loop..."
-  (
-    cd "$PARENT_ROOT" || exit 1
-    git merge --abort >/dev/null 2>&1 || true
-  )
+  echo "[parallel-agent-finish] Parent fast-forward failed (likely $MAIN_BRANCH moved)."
+  echo "[parallel-agent-finish] Retrying rebase reconcile loop..."
 
   sleep 1
 done
