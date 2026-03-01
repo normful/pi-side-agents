@@ -147,7 +147,7 @@ Responsibilities:
   2. If merge conflicts, abort/restore and keep user in child branch for resolution/retry.
   3. If successful, enter short critical section in parent checkout and merge `parallel-agent/<id>` into parent `main`.
   4. If parent-side merge conflicts (because main moved), abort parent merge, return to child worktree, re-run step 1, retry.
-  5. On success, mark agent done and release worktree lock.
+  5. On success, release worktree lock and let the launcher exit with code 0 (successful agents are auto-pruned from registry).
 - Optional alternative flow: create/push PR when explicitly requested.
 
 ### 4.6 Parent statusline integration
@@ -155,7 +155,7 @@ Responsibilities:
 Display compact view in every Pi session in same project:
 
 - Agent id
-- status (`thinking`, `tool`, `pending`, `done`, `crashed`)
+- status (`thinking`, `tool`, `pending`, `running`, `waiting_user`, `failed`, `crashed`)
 - tmux window reference (index/id)
 
 Requires lightweight polling or event update from registry.
@@ -167,7 +167,7 @@ Requires lightweight polling or event update from registry.
    - Lifecycle contract: child implements requested changes, then **yields for review** (no immediate `/quit`).
 2. `agent-check(id)` → status + compact backlog tail (sanitized/truncated for safe context usage)
 3. `agent-wait-any(ids[], states?)` → blocks until one agent reaches any target state
-   - default states: `waiting_user | done | failed | crashed`
+   - default states: `waiting_user | failed | crashed`
    - optional `states` overrides defaults
 4. `agent-send(id, prompt)`
    - `!` prefix: interrupt current thinking/tool call before dispatch
@@ -210,7 +210,6 @@ Suggested normalized states:
 - `finishing`
 - `waiting_merge_lock`
 - `retrying_reconcile`
-- `done`
 - `failed`
 - `crashed`
 
@@ -227,8 +226,8 @@ UI can map these to compact labels/icons.
 7. When implementation is ready, child yields for review (`waiting_user`) instead of quitting immediately.
 8. Parent/user inspects results and can send follow-ups (`agent-send`) for revisions.
 9. On explicit "wrap up" instruction, child runs finish flow (reconcile + serialized parent merge or PR policy).
-10. After finish success, registry transitions to `done`; child can stay open for post-merge notes.
-11. Parent/user finally quits child (`/quit`), launcher writes exit marker, tmux window closes.
+10. After finish success, child can stay open for post-merge notes.
+11. Parent/user finally quits child (`/quit`), launcher writes exit marker, tmux window closes, and successful records are pruned from registry.
 
 ## 7) Failure and recovery
 

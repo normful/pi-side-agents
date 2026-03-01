@@ -109,7 +109,7 @@ async function waitForAnyFirstPass(stateRoot, ids) {
 		return { ok: false, error: "No agent ids were provided" };
 	}
 
-	const waitStates = new Set(["waiting_user", "done", "failed", "crashed"]);
+	const waitStates = new Set(["waiting_user", "failed", "crashed"]);
 
 	const registryPath = join(stateRoot, ".pi", "parallel-agents", "registry.json");
 	let registry = { agents: {} };
@@ -395,7 +395,26 @@ test("waitForAny — waiting_user agent is detected on first pass", async (t) =>
 	assert.strictEqual(result.agent?.status, "waiting_user");
 });
 
-test("waitForAny — terminal agent is detected on first pass", async (t) => {
+test("waitForAny — failed agent is detected on first pass", async (t) => {
+	const now = new Date().toISOString();
+	const stateRoot = await makeTempRegistry(t, {
+		"a-0001": {
+			id: "a-0001",
+			task: "some task",
+			status: "failed",
+			startedAt: now,
+			updatedAt: now,
+			finishedAt: now,
+		},
+	});
+
+	const result = await waitForAnyFirstPass(stateRoot, ["a-0001"]);
+	assert.strictEqual(result.ok, true, "should detect failed as default target state");
+	assert.strictEqual(result.agent?.id, "a-0001");
+	assert.strictEqual(result.agent?.status, "failed");
+});
+
+test("waitForAny — legacy done status is not in default wait targets", async (t) => {
 	const now = new Date().toISOString();
 	const stateRoot = await makeTempRegistry(t, {
 		"a-0001": {
@@ -409,9 +428,8 @@ test("waitForAny — terminal agent is detected on first pass", async (t) => {
 	});
 
 	const result = await waitForAnyFirstPass(stateRoot, ["a-0001"]);
-	assert.strictEqual(result.ok, true, "should detect terminal agent");
-	assert.strictEqual(result.agent?.id, "a-0001");
-	assert.ok(isTerminalStatus(result.agent?.status), "returned agent must be in terminal status");
+	assert.strictEqual(result.ok, false, "done should not be a default wait target anymore");
+	assert.ok(result.error.includes("poll required") || typeof result.error === "string");
 });
 
 test("waitForAny — running agent with valid registry signals poll-needed", async (t) => {

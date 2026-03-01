@@ -49,12 +49,11 @@ const ALL_AGENT_STATUSES: AgentStatus[] = [
 	"finishing",
 	"waiting_merge_lock",
 	"retrying_reconcile",
-	"done",
 	"failed",
 	"crashed",
 ];
 
-const DEFAULT_WAIT_STATES: AgentStatus[] = ["waiting_user", "done", "failed", "crashed"];
+const DEFAULT_WAIT_STATES: AgentStatus[] = ["waiting_user", "failed", "crashed"];
 
 type AgentRecord = {
 	id: string;
@@ -986,21 +985,33 @@ function tmuxCaptureTail(windowId: string, lines = 10): string[] {
 	return tailLines(captured.stdout, lines);
 }
 
-async function refreshOneAgentRuntime(record: AgentRecord): Promise<void> {
+type RefreshRuntimeResult = {
+	removeFromRegistry: boolean;
+};
+
+async function refreshOneAgentRuntime(record: AgentRecord): Promise<RefreshRuntimeResult> {
+	if (record.status === "done") {
+		await cleanupWorktreeLockBestEffort(record.worktreePath);
+		return { removeFromRegistry: true };
+	}
+
 	if (record.exitFile && (await fileExists(record.exitFile))) {
 		const exit = (await readJsonFile<ExitMarker>(record.exitFile)) ?? {};
 		if (typeof exit.exitCode === "number") {
 			record.exitCode = exit.exitCode;
 			record.finishedAt = exit.finishedAt ?? record.finishedAt ?? nowIso();
-			record.status = exit.exitCode === 0 ? "done" : "failed";
 			record.updatedAt = nowIso();
 			await cleanupWorktreeLockBestEffort(record.worktreePath);
-			return;
+			if (exit.exitCode === 0) {
+				return { removeFromRegistry: true };
+			}
+			record.status = "failed";
+			return { removeFromRegistry: false };
 		}
 	}
 
 	if (!record.tmuxWindowId) {
-		return;
+		return { removeFromRegistry: false };
 	}
 
 	const live = tmuxWindowExists(record.tmuxWindowId);
@@ -1009,7 +1020,7 @@ async function refreshOneAgentRuntime(record: AgentRecord): Promise<void> {
 			record.status = "running";
 			record.updatedAt = nowIso();
 		}
-		return;
+		return { removeFromRegistry: false };
 	}
 
 	if (!isTerminalStatus(record.status)) {
@@ -1021,6 +1032,8 @@ async function refreshOneAgentRuntime(record: AgentRecord): Promise<void> {
 		}
 		await cleanupWorktreeLockBestEffort(record.worktreePath);
 	}
+
+	return { removeFromRegistry: false };
 }
 
 async function refreshAgent(stateRoot: string, agentId: string): Promise<AgentRecord | undefined> {
@@ -1028,7 +1041,11 @@ async function refreshAgent(stateRoot: string, agentId: string): Promise<AgentRe
 	await mutateRegistry(stateRoot, async (registry) => {
 		const record = registry.agents[agentId];
 		if (!record) return;
-		await refreshOneAgentRuntime(record);
+		const refreshed = await refreshOneAgentRuntime(record);
+		if (refreshed.removeFromRegistry) {
+			delete registry.agents[agentId];
+			return;
+		}
 		snapshot = JSON.parse(JSON.stringify(record)) as AgentRecord;
 	});
 	return snapshot;
@@ -1036,9 +1053,11 @@ async function refreshAgent(stateRoot: string, agentId: string): Promise<AgentRe
 
 async function refreshAllAgents(stateRoot: string): Promise<RegistryFile> {
 	return mutateRegistry(stateRoot, async (registry) => {
-		for (const record of Object.values(registry.agents)) {
-			if (record.status === "done") continue;
-			await refreshOneAgentRuntime(record);
+		for (const [agentId, record] of Object.entries(registry.agents)) {
+			const refreshed = await refreshOneAgentRuntime(record);
+			if (refreshed.removeFromRegistry) {
+				delete registry.agents[agentId];
+			}
 		}
 	});
 }
@@ -1447,17 +1466,17 @@ async function waitForAny(
 		}
 
 		const unknownOnFirstPass: string[] = [];
+		let knownCount = 0;
 
 		for (const id of uniqueIds) {
 			const checked = await agentCheckPayload(stateRoot, id);
 			const ok = checked.ok === true;
 			if (!ok) {
-				// Track unknown IDs on the first pass so we can fail fast.
-				// On subsequent passes we tolerate disappearing agents (e.g. deleted from
-				// the registry) rather than spinning forever.
 				if (firstPass) unknownOnFirstPass.push(id);
 				continue;
 			}
+
+			knownCount += 1;
 			const status = (checked.agent as any)?.status as AgentStatus | undefined;
 			if (!status) continue;
 			if (waitStateSet.has(status)) {
@@ -1471,6 +1490,17 @@ async function waitForAny(
 			return {
 				ok: false,
 				error: `Unknown agent id(s): ${unknownOnFirstPass.join(", ")}`,
+			};
+		}
+
+		// Successful agents are auto-pruned from registry. If all tracked IDs
+		// disappeared after polling started, we can no longer observe state changes.
+		if (!firstPass && knownCount === 0) {
+			return {
+				ok: false,
+				error:
+					`Agent id(s) disappeared from registry: ${uniqueIds.join(", ")}. ` +
+					"They may have exited successfully and been cleaned up.",
 			};
 		}
 
@@ -1538,9 +1568,7 @@ async function renderStatusLine(ctx: ExtensionContext): Promise<void> {
 
 	const stateRoot = getStateRoot(ctx);
 	const refreshed = await refreshAllAgents(stateRoot);
-	const agents = Object.values(refreshed.agents)
-		.filter((record) => record.status !== "done")
-		.sort((a, b) => a.id.localeCompare(b.id));
+	const agents = Object.values(refreshed.agents).sort((a, b) => a.id.localeCompare(b.id));
 
 	if (agents.length === 0) {
 		ctx.ui.setStatus(STATUS_KEY, undefined);
@@ -1758,7 +1786,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-check",
 		label: "Agent Check",
 		description:
-			"Check a given parallel agent status and return compact recent output. Returns { ok: true, agent: { id, status, tmuxWindowId, tmuxWindowIndex, worktreePath, branch, task, startedAt, finishedAt?, exitCode?, error?, warnings[] }, backlog: string[] }, or { ok: false, error } if the agent id is unknown or a registry error occurs. backlog is sanitized/truncated for LLM safety; task is a compact preview. Statuses: allocating_worktree | spawning_tmux | starting | running | waiting_user | finishing | waiting_merge_lock | retrying_reconcile | done | failed | crashed.",
+			"Check a given parallel agent status and return compact recent output. Returns { ok: true, agent: { id, status, tmuxWindowId, tmuxWindowIndex, worktreePath, branch, task, startedAt, finishedAt?, exitCode?, error?, warnings[] }, backlog: string[] }, or { ok: false, error } if the agent id is unknown or a registry error occurs. backlog is sanitized/truncated for LLM safety; task is a compact preview. Statuses: allocating_worktree | spawning_tmux | starting | running | waiting_user | finishing | waiting_merge_lock | retrying_reconcile | failed | crashed. Agents that exit with code 0 are auto-removed from registry.",
 		parameters: Type.Object({
 			id: Type.String({ description: "Agent id" }),
 		}),
@@ -1780,13 +1808,12 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-wait-any",
 		label: "Agent Wait Any",
 		description:
-			"Poll until one of the provided agent ids reaches a target state, then return that agent's check payload (same shape as agent-check). Default wait states: waiting_user | done | failed | crashed. Optionally pass states[] to override. Returns { ok: false, error } immediately if any id is unknown on first pass. The tool's abort signal is respected between poll cycles (roughly every 1 s).",
+			"Poll until one of the provided agent ids reaches a target state, then return that agent's check payload (same shape as agent-check). Default wait states: waiting_user | failed | crashed. Optionally pass states[] to override. Returns { ok: false, error } immediately if any id is unknown on first pass. Successful exitCode 0 agents are auto-pruned from registry; if all tracked ids disappear, this tool returns an error instead of polling forever. The tool's abort signal is respected between poll cycles (roughly every 1 s).",
 		parameters: Type.Object({
 			ids: Type.Array(Type.String({ description: "Agent id" }), { description: "Agent ids to wait for" }),
 			states: Type.Optional(
 				Type.Array(Type.String({ description: "Agent status value" }), {
-					description:
-						"Optional target states to wait for. Default: waiting_user, done, failed, crashed",
+					description: "Optional target states to wait for. Default: waiting_user, failed, crashed",
 				}),
 			),
 		}),

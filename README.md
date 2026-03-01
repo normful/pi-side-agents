@@ -116,7 +116,8 @@ Inspect the current status and recent output of an agent.
 **Status values**
 
 - Non-terminal: `allocating_worktree` · `spawning_tmux` · `starting` · `running` · `waiting_user` · `finishing` · `waiting_merge_lock` · `retrying_reconcile`
-- Terminal: `done` · `failed` · `crashed`
+- Terminal (persisted): `failed` · `crashed`
+- Successful exits (`exitCode === 0`) are auto-removed from the registry.
 
 **Output (failure)**
 
@@ -134,16 +135,17 @@ Block until one of the given agents reaches a target state, then return its
 **Input**:
 
 ```json
-{ "ids": ["a-0001", "a-0002"], "states": ["waiting_user", "done"] }
+{ "ids": ["a-0001", "a-0002"], "states": ["waiting_user", "failed", "crashed"] }
 ```
 
-`states` is optional. Default wait states are: `waiting_user`, `done`, `failed`, `crashed`.
+`states` is optional. Default wait states are: `waiting_user`, `failed`, `crashed`.
 
 **Behaviour**
 
 - Polls every ~1 s; respects the tool's abort signal between cycles.
 - Returns `{ ok: false, error }` **immediately** if any `id` is unknown on the
   first poll — unknown agents never become known, so waiting would be pointless.
+- If all tracked ids disappear mid-wait (for example because they exited with code 0 and were auto-pruned), returns `{ ok: false, error }` instead of polling forever.
 - Returns as soon as one agent matches any target state, with full `agent-check` payload.
 
 ---
@@ -177,16 +179,15 @@ Send a prompt or command to a running child agent's tmux pane.
 ```
 agent-start  → get id
    ↓
-agent-wait-any([id])           ← default waits for waiting_user or terminal
+agent-wait-any([id])           ← default waits for waiting_user/failed/crashed
    ↓
 check result.agent.status
   "waiting_user" → inspect backlog/diff, request fixes or send "wrap up"
-  "done"         → merged/finished; send /quit if no more work
   "failed"       → inspect error; retry/steer as needed
   "crashed"      → inspect logs, restart if needed
 
-# Optional second wait after "wrap up":
-agent-wait-any([id], ["done", "failed", "crashed"])
+# After /quit with exitCode 0, agent is removed from registry.
+# agent-check / agent-wait-any for that id will return unknown/disappeared.
 ```
 
 ---
