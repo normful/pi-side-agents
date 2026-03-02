@@ -1,44 +1,47 @@
 # pi-parallel-agents
 
-**Code in sprints** (asynchronous agents), **not in a marathon** (serial task-by-task flow).
+**Code in sprints** (using agents *asynchronously*), **not in a marathon** (*synchronous* task-by-task flow).
 
-Instead of keeping a text backlog and waiting for one item to finish before starting the next, fire tasks off immediately into single-use child agents. Each child runs in its own **tmux window** and **git worktree**, so you can keep moving without cross-task contamination.
+Instead of waiting for one backlog item to finish before starting the next, spin tasks out into single-use child agents as soon as they occur to you. Each child runs in its own **tmux window** and **git worktree**, so you can keep shipping in parallel while maintaining isolation. Each child is a one-off and lives and dies with its short topic branch and tmux window - no "teams of long-running agents messaging each other" or "role-based subagents" complexity. The workflow is unified, simple, and deterministic.
 
-This extension automates the tmux/worktree lifecycle for you, and can also be used by an agent that orchestrates its own flock of subagents.
+This extension automates the complete tmux/worktree/merge lifecycle for you. The parallel agents can also be spawned and controlled by an agent to autonomously orchestrate its own flock of subagents.
 
-> ⚠️ Parallelism boosts throughput and model usage. Pick sensible default models and pace your review loop.
+**Warning:** You will be building a lot more, which means you may be running out of your context windows, and have to take better care of your wellbeing between the sprints. Also, for the community's sake, please do not be maxing out your Claude subscriptions with Pi - use a Codex model (or APIs) for this by default.
 
 ## What it does
 
-- `/agent [-model ...] <task>`: spawn a child Pi agent in the background.
-- `/agents`: inspect active agents and clean up stale runtime state.
-- Statusline summary of active agents (including tmux window references).
-- Shared runtime registry at `.pi/parallel-agents/registry.json`.
-- Parent-orchestration tools:
+- Adds `/agent [-model ...] <task>` to spawn a background child Pi agent.
+- Adds `/agents` to inspect current agents and clean up stale state.
+- Shows active-agent summary with tmux window numbers in the statusline.
+- Includes `agent-setup` skill to scaffold project-specific lifecycle scripts.
+- Tracks runtime state in `.pi/parallel-agents/registry.json`.
+- Exposes orchestration tools for parent agents:
   - `agent-start`
   - `agent-check`
   - `agent-wait-any`
   - `agent-send`
-- `agent-setup` skill to scaffold project-specific lifecycle scripts.
 
 ## Quick start
 
-1. Run setup once in your repo:
-   - `/skill:agent-setup`
-2. Spawn work as it appears:
-   - `/agent investigate weirdMethod behavior`
+1. **Run setup once** in your project: `/skill:agent-setup`
+   - If you want to change the setup later, or are upgrading this skill and want to get new setup goodies, just re-run the skill with a short prompt.
+2. **Spawn asynchronous work items at any point** during your work:
+   - `/agent wait, why is weirdMethod doing something-weird?`
    - `/agent -model gpt-5.3-codex add regression tests for auth`
-3. Keep coding in your main session while children run.
-4. Check and steer children:
-   - statusline (`parallel-agents`)
-   - `/agents`
-   - switch to child tmux window when one is waiting
-5. When a child is done, review and approve with **“LGTM, merge”**.
-   - child lands changes, then you can `/quit` it.
-
-## Workflow in one line
-
-Spawn early, review often, merge small, keep your main flow unblocked.
+  - Just keep firing up more and more. As a rule of thumb, start all new work via `/agent`. But you can also use this only for e.g. ad hoc side questions.
+3. **Check progress and attend** to the baby agents:
+   - Check statusline for which agents (id by branch and tmux window) are waiting for you.
+   - `/agents` to get a detailed overview of what's being done right now.
+   - Steer the waiting children, work with them as normal Pi instances.  Just switch your tmux window.
+4. If an agent is done, review its work and once happy, confirm by **LGTM, merge**.
+   - Recommended: Write `commit your work when done` in your `AGENTS.md`. (You can always tell the agent to amend.)
+   - Quickest way to review: ctrl+z, `git show`, `fg` to go back to the baby agent's Pi.
+   - Your main worktree should be in a clean state at this point, do not work in main tree and parallel agents in parallel.
+   - You can also tell your Pi to open GitHub PRs instead of merging locally, if that's what you prefer.
+5. The agent will merge its work to your main repo. **Just type `/quit` and forget.**
+   - Old worktrees are kept around and reused + updated by new agents.
+   - Old branches are auto-pruned during reuse by a new agent.
+   - You can pause your work on a topic - if you `/quit` before work is merged, the branch will stay around.
 
 ## Requirements
 
@@ -47,6 +50,8 @@ Spawn early, review often, merge small, keep your main flow unblocked.
 - Pi configured/authenticated
 
 ## Development
+
+Run tests:
 
 ```bash
 npm run test:unit
