@@ -575,9 +575,28 @@ async function withFileLock<T>(lockPath: string, fn: () => Promise<T>): Promise<
 
 			try {
 				const st = await fs.stat(lockPath);
-				if (Date.now() - st.mtimeMs > 30_000) {
+				const ageMs = Date.now() - st.mtimeMs;
+				if (ageMs > 30_000) {
 					await fs.unlink(lockPath).catch(() => {});
 					continue;
+				}
+				// Check if the lock holder is still alive (stale lock after crash/reboot)
+				if (ageMs > 2_000) {
+					try {
+						const raw = await fs.readFile(lockPath, "utf8");
+						const data = JSON.parse(raw);
+						if (typeof data.pid === "number") {
+							try {
+								process.kill(data.pid, 0); // signal 0 = existence check
+							} catch {
+								// PID doesn't exist → stale lock
+								await fs.unlink(lockPath).catch(() => {});
+								continue;
+							}
+						}
+					} catch {
+						// If we can't read/parse the lock, fall through to normal timeout
+					}
 				}
 			} catch {
 				// ignore

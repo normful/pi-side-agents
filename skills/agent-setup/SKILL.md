@@ -145,6 +145,18 @@ acquire_lock() {
       return 0
     fi
     elapsed=$(( $(date +%s) - started ))
+
+    # Check if the lock holder is still alive (stale lock after crash/reboot)
+    if [[ -f "$LOCK_FILE" ]]; then
+      local holder_pid
+      holder_pid="$(grep -o '"pid":[0-9]*' "$LOCK_FILE" 2>/dev/null | head -1 | grep -o '[0-9]*' || true)"
+      if [[ -n "$holder_pid" ]] && ! kill -0 "$holder_pid" 2>/dev/null; then
+        echo "[side-agent-finish] Removing stale merge lock (pid $holder_pid no longer running)."
+        rm -f "$LOCK_FILE"
+        continue
+      fi
+    fi
+
     if [[ "$elapsed" -ge "$MERGE_LOCK_TIMEOUT" ]]; then
       echo "[side-agent-finish] Timed out after ${MERGE_LOCK_TIMEOUT}s waiting for merge lock."
       echo "[side-agent-finish] Stale lock? Inspect: $LOCK_FILE"
