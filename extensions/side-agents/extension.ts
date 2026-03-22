@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { AgentToolResult, ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { basename } from "node:path";
 import { Type } from "@sinclair/typebox";
 import {
@@ -237,7 +237,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 				Type.String({ description: "Model as provider/modelId (optional)" }),
 			),
 		}),
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<AgentToolResult<unknown>> {
 			try {
 				const started = await startAgent(pi, ctx, {
 					task: params.description,
@@ -268,6 +268,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 							),
 						},
 					],
+					details: undefined,
 				};
 			} catch (err) {
 				return {
@@ -281,6 +282,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 							),
 						},
 					],
+					details: undefined,
 				};
 			}
 		},
@@ -294,11 +296,12 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		parameters: Type.Object({
 			id: Type.String({ description: "Agent id" }),
 		}),
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<AgentToolResult<unknown>> {
 			try {
 				const payload = await agentCheckPayload(getStateRoot(ctx), params.id);
 				return {
 					content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+					details: undefined,
 				};
 			} catch (err) {
 				return {
@@ -312,6 +315,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 							),
 						},
 					],
+					details: undefined,
 				};
 			}
 		},
@@ -327,11 +331,12 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 				description: "Agent ids to wait for",
 			}),
 		}),
-		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, signal, _onUpdate, ctx): Promise<AgentToolResult<unknown>> {
 			try {
 				const payload = await waitForAny(getStateRoot(ctx), params.ids, signal);
 				return {
 					content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+					details: undefined,
 				};
 			} catch (err) {
 				return {
@@ -345,6 +350,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 							),
 						},
 					],
+					details: undefined,
 				};
 			}
 		},
@@ -362,7 +368,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 					"Prompt text to send (prefix with '!' to interrupt first instead of organic steering, '/' for slash commands like /quit)",
 			}),
 		}),
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<AgentToolResult<unknown>> {
 			try {
 				const payload = await sendToAgent(
 					getStateRoot(ctx),
@@ -371,6 +377,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 				);
 				return {
 					content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+					details: undefined,
 				};
 			} catch (err) {
 				return {
@@ -384,6 +391,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 							),
 						},
 					],
+					details: undefined,
 				};
 			}
 		},
