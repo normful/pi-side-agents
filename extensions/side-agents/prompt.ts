@@ -39,9 +39,9 @@ Preferred content (but only when relevant):
 - decisions already made
 - key files/components to inspect
 - risks/caveats`;
-const PLAIN_GIT_INSTRUCTIONS = `When running git commands, always run with additional env vars, like this:
-  GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_AUTHOR_NAME="AI" GIT_AUTHOR_EMAIL="none" GIT_COMMITTER_NAME="AI" GIT_COMMITTER_EMAIL="none" git commit
-`;
+const PLAIN_GIT_INSTRUCTIONS = `ALWAYS run git commands with these env vars and config (git doesn't read $HOME files).
+  Example: instead of 'git commit', run 'GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_AUTHOR_NAME="AI" GIT_AUTHOR_EMAIL="none" GIT_COMMITTER_NAME="AI" GIT_COMMITTER_EMAIL="none" git -c core.excludesFile=/dev/null commit'.
+ Same for other git commands.`;
 
 export function normalizeGeneratedSummary(raw: string): string {
 	const cleaned = stripTerminalNoise(raw).trim();
