@@ -22,7 +22,7 @@ import {
 } from "./agent.js";
 import { getStateRoot, mutateRegistry } from "./registry.js";
 import { summarizeOrphanLock } from "./slug.js";
-import { run, stringifyError } from "./utils.js";
+import { json, run, stringifyError } from "./utils.js";
 import {
 	reclaimOrphanWorktreeLocks,
 	scanOrphanWorktreeLocks,
@@ -81,23 +81,19 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text",
-							text: JSON.stringify(
-								{
-									ok: true,
-									id: started.id,
-									task:
-										params.description.length > 200
-											? `${params.description.slice(0, 200)}...`
-											: params.description,
-									tmuxWindowId: started.tmuxWindowId,
-									tmuxWindowIndex: started.tmuxWindowIndex,
-									worktreePath: started.worktreePath,
-									branch: started.branch,
-									warnings: started.warnings,
-								},
-								null,
-								2,
-							),
+							text: json({
+							ok: true,
+							id: started.id,
+							task:
+								params.description.length > 200
+									? `${params.description.slice(0, 200)}...`
+									: params.description,
+							tmuxWindowId: started.tmuxWindowId,
+							tmuxWindowIndex: started.tmuxWindowIndex,
+							worktreePath: started.worktreePath,
+							branch: started.branch,
+							warnings: started.warnings,
+						}),
 						},
 					],
 					details: undefined,
@@ -107,11 +103,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text",
-							text: JSON.stringify(
-								{ ok: false, error: stringifyError(err) },
-								null,
-								2,
-							),
+							text: json({ ok: false, error: stringifyError(err) }),
 						},
 					],
 					details: undefined,
@@ -138,7 +130,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 			try {
 				const payload = await agentCheckPayload(getStateRoot(ctx), params.id);
 				return {
-					content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+					content: [{ type: "text", text: json(payload) }],
 					details: undefined,
 				};
 			} catch (err) {
@@ -146,11 +138,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text",
-							text: JSON.stringify(
-								{ ok: false, error: stringifyError(err) },
-								null,
-								2,
-							),
+							text: json({ ok: false, error: stringifyError(err) }),
 						},
 					],
 					details: undefined,
@@ -179,7 +167,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 			try {
 				const payload = await waitForAny(getStateRoot(ctx), params.ids, signal);
 				return {
-					content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+					content: [{ type: "text", text: json(payload) }],
 					details: undefined,
 				};
 			} catch (err) {
@@ -187,11 +175,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text",
-							text: JSON.stringify(
-								{ ok: false, error: stringifyError(err) },
-								null,
-								2,
-							),
+							text: json({ ok: false, error: stringifyError(err) }),
 						},
 					],
 					details: undefined,
@@ -225,7 +209,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 					params.prompt,
 				);
 				return {
-					content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+					content: [{ type: "text", text: json(payload) }],
 					details: undefined,
 				};
 			} catch (err) {
@@ -233,11 +217,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text",
-							text: JSON.stringify(
-								{ ok: false, error: stringifyError(err) },
-								null,
-								2,
-							),
+							text: json({ ok: false, error: stringifyError(err) }),
 						},
 					],
 					details: undefined,

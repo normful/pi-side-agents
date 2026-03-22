@@ -171,3 +171,10 @@ export function tmuxWindowExists(windowId: string): boolean {
 	]);
 	return result.ok && result.stdout.trim() === windowId;
 }
+
+/**
+ * Shortcut for JSON.stringify(value, null, 2).
+ */
+export function json(value: unknown): string {
+	return JSON.stringify(value, null, 2);
+}
