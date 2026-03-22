@@ -46,7 +46,7 @@ export function normalizeGeneratedSummary(raw: string): string {
 	if (!cleaned) return "";
 
 	const fenced = cleaned.match(/^```(?:markdown|md)?\s*\n?([\s\S]*?)\n?```$/i);
-	const unfenced = (fenced ? fenced[1] : cleaned).trim();
+	const unfenced = (fenced?.[1] ?? cleaned).trim();
 	if (!unfenced) return "";
 	if (SUMMARY_NONE_RE.test(unfenced)) return "";
 
