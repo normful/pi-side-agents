@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import { dirname } from "node:path";
-import { nowIso, stringifyError, type CommandResult } from "./utils.js";
+import { nowIso } from "./utils.js";
 
 export async function fileExists(path: string): Promise<boolean> {
 	try {
