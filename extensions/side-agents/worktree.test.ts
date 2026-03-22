@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import type { RegistryFile } from "./registry.js";
 import type { OrphanWorktreeLock } from "./slug.js";
 import {
+	allocateWorktree,
 	cleanupWorktreeLockBestEffort,
 	listRegisteredWorktrees,
 	reclaimOrphanWorktreeLocks,
@@ -11,6 +12,8 @@ import {
 	updateWorktreeLock,
 	writeWorktreeLock,
 } from "./worktree.js";
+import { type CommandResult } from "./utils.js";
+import { fileExists } from "./fs.js";
 
 describe("writeWorktreeLock", () => {
 	let testDir: string;
@@ -432,14 +435,106 @@ describe("scanOrphanWorktreeLocks", () => {
 	});
 });
 
+// ============================================================================
+// Test Cases: allocateWorktree
+// ============================================================================
+
+describe("allocateWorktree", () => {
+	let testDir: string;
+	let mainRepo: string;
+
+	beforeEach(async () => {
+		testDir = await setupTestDir();
+		mainRepo = join(testDir, "main-repo");
+		await mkdir(mainRepo, { recursive: true });
+		await runGit(["init"], mainRepo);
+		await runGit(["commit", "--allow-empty", "-m", "initial"], mainRepo);
+	});
+
+	test("creates pi-side-agent-worktrees directory if it does not exist", async () => {
+		const worktreesDir = join(
+			process.env["TMPDIR"] || "/tmp",
+			"pi-side-agent-worktrees",
+		);
+
+		// Ensure the directory doesn't exist before the test
+		await rm(worktreesDir, { recursive: true, force: true });
+
+		const result = await allocateWorktree({
+			repoRoot: mainRepo,
+			stateRoot: testDir,
+			agentId: "test-agent-worktrees-dir",
+			parentSessionId: "parent-sess",
+		});
+
+		expect(result.worktreePath).toBeDefined();
+		expect(result.worktreePath).toContain("pi-side-agent-worktrees");
+		expect(result.branch).toBe("side-agent/test-agent-worktrees-dir");
+		expect(result.warnings).toBeEmpty();
+
+		// Verify the parent directory was created
+		const parentDirExists = await fileExists(worktreesDir);
+		expect(parentDirExists).toBe(true);
+	});
+
+	test("works when pi-side-agent-worktrees directory already exists", async () => {
+		const worktreesDir = join(
+			process.env["TMPDIR"] || "/tmp",
+			"pi-side-agent-worktrees",
+		);
+
+		// Ensure the directory exists before the test
+		await mkdir(worktreesDir, { recursive: true });
+
+		const result = await allocateWorktree({
+			repoRoot: mainRepo,
+			stateRoot: testDir,
+			agentId: "test-agent-existing-dir",
+			parentSessionId: "parent-sess",
+		});
+
+		expect(result.worktreePath).toBeDefined();
+		expect(result.worktreePath).toContain("pi-side-agent-worktrees");
+		expect(result.branch).toBe("side-agent/test-agent-existing-dir");
+	});
+
+	test("returns correct branch name", async () => {
+		const result = await allocateWorktree({
+			repoRoot: mainRepo,
+			stateRoot: testDir,
+			agentId: "my-test-agent",
+			parentSessionId: "parent-sess",
+		});
+
+		expect(result.branch).toBe("side-agent/my-test-agent");
+	});
+
+	test("creates git worktree for the side-agent branch", async () => {
+		const result = await allocateWorktree({
+			repoRoot: mainRepo,
+			stateRoot: testDir,
+			agentId: "worktree-branch-test",
+			parentSessionId: "parent-sess",
+		});
+
+		// Verify the worktree was added to the main repo
+		const worktreeListResult = await runGit(["worktree", "list"], mainRepo);
+		expect(worktreeListResult.stdout).toContain(result.worktreePath);
+		expect(worktreeListResult.stdout).toContain("side-agent/worktree-branch-test");
+	});
+});
+
 // Helper functions
 
-async function runGit(args: string[], cwd: string): Promise<void> {
+import { type CommandResult } from "./utils.js";
+
+async function runGit(args: string[], cwd: string): Promise<CommandResult> {
 	const { run } = await import("./utils.js");
 	const result = run("git", args, { cwd });
 	if (!result.ok) {
 		throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
 	}
+	return result;
 }
 
 // Helper
