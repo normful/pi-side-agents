@@ -13,7 +13,6 @@ import {
 	run,
 	runOrThrow,
 	tmuxWindowExists,
-	type CommandResult,
 } from "./utils.js";
 
 describe("nowIso", () => {

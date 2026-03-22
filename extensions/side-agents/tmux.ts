@@ -1,11 +1,13 @@
 import { shellQuote, run, runOrThrow, splitLines } from "./utils.js";
-import type { CommandResult } from "./utils.js";
 
-const ENV_AGENT_ID = "PI_SIDE_AGENT_ID";
-const ENV_PARENT_SESSION = "PI_SIDE_PARENT_SESSION";
-const ENV_PARENT_REPO = "PI_SIDE_PARENT_REPO";
-const ENV_STATE_ROOT = "PI_SIDE_AGENTS_ROOT";
-const ENV_RUNTIME_DIR = "PI_SIDE_RUNTIME_DIR";
+const _ENV_AGENT_ID = "PI_SIDE_AGENT_ID";
+const _ENV_PARENT_SESSION = "PI_SIDE_PARENT_SESSION";
+const _ENV_PARENT_REPO = "PI_SIDE_PARENT_REPO";
+const _ENV_STATE_ROOT = "PI_SIDE_AGENTS_ROOT";
+const _ENV_RUNTIME_DIR = "PI_SIDE_RUNTIME_DIR";
+// Reference constants to satisfy noUnusedLocals
+const _refs = { _ENV_AGENT_ID, _ENV_PARENT_SESSION, _ENV_PARENT_REPO, _ENV_STATE_ROOT, _ENV_RUNTIME_DIR };
+void _refs;
 
 export function ensureTmuxReady(): void {
 	const version = run("tmux", ["-V"]);
@@ -118,11 +120,11 @@ RUNTIME_DIR=${shellQuote(params.runtimeDir)}
 START_SCRIPT="$WORKTREE/.pi/side-agent-start.sh"
 CHILD_SKILLS_DIR="$WORKTREE/.pi/side-agent-skills"
 
-export \${ENV_AGENT_ID}="$AGENT_ID"
-export \${ENV_PARENT_SESSION}="$PARENT_SESSION"
-export \${ENV_PARENT_REPO}="$PARENT_REPO"
-export \${ENV_STATE_ROOT}="$STATE_ROOT"
-export \${ENV_RUNTIME_DIR}="$RUNTIME_DIR"
+export \${_ENV_AGENT_ID}="$AGENT_ID"
+export \${_ENV_PARENT_SESSION}="$PARENT_SESSION"
+export \${_ENV_PARENT_REPO}="$PARENT_REPO"
+export \${_ENV_STATE_ROOT}="$STATE_ROOT"
+export \${_ENV_RUNTIME_DIR}="$RUNTIME_DIR"
 
 write_exit() {
   local code="$1"

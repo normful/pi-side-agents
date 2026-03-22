@@ -20,7 +20,7 @@ describe("buildLaunchScript", () => {
 		expect(script.startsWith("#!/usr/bin/env bash")).toBe(true);
 
 		// Should export environment variables
-		expect(script).toContain("export ${ENV_AGENT_ID}=");
+		expect(script).toContain("export ${_ENV_AGENT_ID}=");
 
 		// Should set WORKTREE
 		expect(script).toContain("WORKTREE=");

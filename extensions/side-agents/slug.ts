@@ -1,14 +1,7 @@
-import type {
-	ExtensionContext,
-	SessionEntry,
-	Message,
-} from "@mariozechner/pi-coding-agent";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { promises as fs } from "node:fs";
-import { readJsonFile } from "./fs.js";
-import { run, runOrThrow, stringifyError, tmuxWindowExists } from "./utils.js";
-import type { CommandResult } from "./utils.js";
-import type { AgentRecord, RegistryFile } from "./registry.js";
+import { run } from "./utils.js";
+import type { RegistryFile } from "./registry.js";
 
 export type WorktreeSlot = {
 	index: number;

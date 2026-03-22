@@ -60,7 +60,7 @@ describe("loadRegistry", () => {
 		const loaded = await loadRegistry(stateRoot);
 		expect(loaded.version).toBe(1);
 		expect(Object.keys(loaded.agents)).toEqual(["test-agent"]);
-		expect(loaded.agents["test-agent"].task).toBe("test task");
+		expect(loaded.agents["test-agent"]!.task).toBe("test task");
 	});
 });
 
@@ -185,16 +185,16 @@ describe("setRecordStatus", () => {
 
 describe("getStateRoot", () => {
 	test("uses PI_SIDE_AGENTS_ROOT env var if set", () => {
-		const original = process.env.PI_SIDE_AGENTS_ROOT;
-		process.env.PI_SIDE_AGENTS_ROOT = "/custom/path";
+		const original = process.env["PI_SIDE_AGENTS_ROOT"];
+		process.env["PI_SIDE_AGENTS_ROOT"] = "/custom/path";
 		try {
 			const stateRoot = getStateRoot({ cwd: "/somewhere/else" });
 			expect(stateRoot).toBe("/custom/path");
 		} finally {
 			if (original) {
-				process.env.PI_SIDE_AGENTS_ROOT = original;
+				process.env["PI_SIDE_AGENTS_ROOT"] = original;
 			} else {
-				delete process.env.PI_SIDE_AGENTS_ROOT;
+				delete process.env["PI_SIDE_AGENTS_ROOT"];
 			}
 		}
 	});
@@ -268,25 +268,25 @@ describe("prepareFreshRuntimeDir", () => {
 
 describe("isChildRuntime", () => {
 	test("returns false when PI_SIDE_AGENT_ID not set", () => {
-		const original = process.env.PI_SIDE_AGENT_ID;
-		delete process.env.PI_SIDE_AGENT_ID;
+		const original = process.env["PI_SIDE_AGENT_ID"];
+		delete process.env["PI_SIDE_AGENT_ID"];
 		try {
 			expect(isChildRuntime()).toBe(false);
 		} finally {
-			if (original) process.env.PI_SIDE_AGENT_ID = original;
+			if (original) process.env["PI_SIDE_AGENT_ID"] = original;
 		}
 	});
 
 	test("returns true when PI_SIDE_AGENT_ID is set", () => {
-		const original = process.env.PI_SIDE_AGENT_ID;
-		process.env.PI_SIDE_AGENT_ID = "test-agent";
+		const original = process.env["PI_SIDE_AGENT_ID"];
+		process.env["PI_SIDE_AGENT_ID"] = "test-agent";
 		try {
 			expect(isChildRuntime()).toBe(true);
 		} finally {
 			if (original) {
-				process.env.PI_SIDE_AGENT_ID = original;
+				process.env["PI_SIDE_AGENT_ID"] = original;
 			} else {
-				delete process.env.PI_SIDE_AGENT_ID;
+				delete process.env["PI_SIDE_AGENT_ID"];
 			}
 		}
 	});
@@ -294,7 +294,7 @@ describe("isChildRuntime", () => {
 
 // Helper
 const testBaseDir = join(
-	process.env.TMPDIR || "/tmp",
+	process.env["TMPDIR"] || "/tmp",
 	"side-agents-registry-test",
 );
 let testCounter = 0;

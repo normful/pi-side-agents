@@ -1,5 +1,5 @@
 import { promises as fs } from "node:fs";
-import { join, dirname, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import {
 	readJsonFile,
 	atomicWrite,
@@ -173,7 +173,7 @@ export function isTerminalStatus(status: AgentStatus): boolean {
 }
 
 export async function setRecordStatus(
-	stateRoot: string,
+	_stateRoot: string,
 	record: AgentRecord,
 	nextStatus: AgentStatus,
 ): Promise<boolean> {

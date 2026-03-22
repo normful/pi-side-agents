@@ -1,5 +1,5 @@
 import { describe, expect, test, afterAll, beforeEach } from "bun:test";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	writeWorktreeLock,
@@ -159,7 +159,7 @@ describe("reclaimOrphanWorktreeLocks", () => {
 
 // Helper
 const testBaseDir = join(
-	process.env.TMPDIR || "/tmp",
+	process.env["TMPDIR"] || "/tmp",
 	"side-agents-worktree-test",
 );
 let testCounter = 0;

@@ -8,7 +8,6 @@ import {
 	stringifyError,
 	tmuxWindowExists,
 } from "./utils.js";
-import type { CommandResult } from "./utils.js";
 import {
 	listWorktreeSlots,
 	parseOptionalPid,
@@ -77,14 +76,14 @@ export async function scanOrphanWorktreeLocks(
 
 		const raw = (await readJsonFile<Record<string, unknown>>(lockPath)) ?? {};
 		const lockAgentId =
-			typeof raw.agentId === "string" ? raw.agentId : undefined;
+			typeof raw["agentId"] === "string" ? raw["agentId"] : undefined;
 		if (lockAgentId && registry.agents[lockAgentId]) {
 			continue;
 		}
 
-		const lockPid = parseOptionalPid(raw.pid);
+		const lockPid = parseOptionalPid(raw["pid"]);
 		const lockTmuxWindowId =
-			typeof raw.tmuxWindowId === "string" ? raw.tmuxWindowId : undefined;
+			typeof raw["tmuxWindowId"] === "string" ? raw["tmuxWindowId"] : undefined;
 
 		const blockers: string[] = [];
 		if (isPidAlive(lockPid)) {
@@ -97,10 +96,10 @@ export async function scanOrphanWorktreeLocks(
 		const candidate: OrphanWorktreeLock = {
 			worktreePath: slot.path,
 			lockPath,
-			lockAgentId,
-			lockPid,
-			lockTmuxWindowId,
 			blockers,
+			...(lockAgentId !== undefined && { lockAgentId }),
+			...(lockPid !== undefined && { lockPid }),
+			...(lockTmuxWindowId !== undefined && { lockTmuxWindowId }),
 		};
 
 		if (blockers.length > 0) {
@@ -223,7 +222,7 @@ export async function allocateWorktree(options: {
 		if (lockExists) {
 			const lock = await readJsonFile<Record<string, unknown>>(lockPath);
 			const lockAgentId =
-				typeof lock?.agentId === "string" ? lock.agentId : undefined;
+				typeof lock?.["agentId"] === "string" ? lock?.["agentId"] : undefined;
 			if (!lockAgentId || !registry.agents[lockAgentId]) {
 				warnings.push(
 					`Locked worktree is not tracked in registry: ${slot.path}`,
