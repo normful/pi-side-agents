@@ -669,7 +669,6 @@ async function createHarness(t, options = {}) {
 	const rootDir = await mkdtemp(join(tmpdir(), "pi-side-it-"));
 	console.error(`[DEBUG] createHarness: rootDir=${rootDir}`);
 	const repoRoot = join(rootDir, "repo");
-	const agentDir = join(rootDir, "agent-dir");
 	const parentSessionDir = join(rootDir, "sessions");
 	const tmuxSocket = join(rootDir, "tmux.sock");
 	const sessionName = `it-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -678,7 +677,6 @@ async function createHarness(t, options = {}) {
 	console.error(`[DEBUG] createHarness: provider=${provider}, modelId=${modelId}`);
 
 	await mkdir(repoRoot, { recursive: true });
-	await mkdir(agentDir, { recursive: true });
 	await mkdir(parentSessionDir, { recursive: true });
 	console.error(`[DEBUG] createHarness: created dirs, parentSessionDir=${parentSessionDir}`);
 
@@ -772,21 +770,6 @@ async function createHarness(t, options = {}) {
 		);
 	}
 
-	await writeFile(
-		join(agentDir, "settings.json"),
-		// biome-ignore lint/style/useTemplate: ignored using `--suppress`
-		JSON.stringify(
-			{
-				defaultProvider: provider,
-				defaultModel: modelId,
-				defaultThinkingLevel: "minimal",
-				packages: [],
-			},
-			null,
-			2,
-		) + "\n",
-	);
-
 	const launchScript = join(rootDir, "launch-parent.sh");
 	await writeFile(
 		launchScript,
@@ -805,21 +788,15 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 
 	const env = {
 		...process.env,
-		PI_CODING_AGENT_DIR: agentDir,
 		PI_SIDE_AGENTS_ROOT: repoRoot,
-		PI_OFFLINE: "1",
 	};
-	console.error(`[DEBUG] createHarness: env.PI_CODING_AGENT_DIR=${env.PI_CODING_AGENT_DIR}`);
 
 	console.error(`[DEBUG] createHarness: launchScript=${launchScript}`);
-	console.error(`[DEBUG] createHarness: PI_CODING_AGENT_DIR=${agentDir}`);
 	console.error(`[DEBUG] createHarness: PI_SIDE_AGENTS_ROOT=${repoRoot}`);
 	
 	// Verify pi is in PATH and show env vars
 	const whichPi = run("which", ["pi"]);
 	console.error(`[DEBUG] createHarness: which pi = ${whichPi.stdout.trim()}`);
-	console.error(`[DEBUG] createHarness: PATH = ${process.env.PATH}`);
-	console.error(`[DEBUG] createHarness: agentDir=${agentDir}`);
 	
 	console.error("[DEBUG] createHarness: starting tmux session...");
 
@@ -856,7 +833,6 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 	const harness = {
 		rootDir,
 		repoRoot,
-		agentDir,
 		parentSessionDir,
 		tmuxSocket,
 		sessionName,
