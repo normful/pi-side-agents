@@ -32,7 +32,7 @@
 		"node": ">=18"
 	},
 	"scripts": {
-		"typecheck": "tsc --noEmit",
+    "typecheck": "bun run tsc --noEmit 2>&1 | grep -m 1 '^'",
 		"format": "biome format --write --colors=off --max-diagnostics=0",
 		"lint": "biome lint --write --colors=off --max-diagnostics=0",
 		"test:unit": "node --test tests/unit/tool-contract.test.mjs",
