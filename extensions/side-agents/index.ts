@@ -188,7 +188,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 		name: "agent-send",
 		label: "Agent Send",
 		description:
-			"Send text to a background agent's tmux pane. For immediate interruption or forced commands, prefix prompt with: '!' to interrupt first, '/' for slash commands (e.g. '/quit' to terminate). IMPORTANT: Always append newline character to end of prompt",
+			"Send text to a background agent's tmux pane. For immediate interruption or forced commands, prefix prompt with: '!' to interrupt first, '/' for slash commands (e.g. '/quit' to terminate)",
 		parameters: Type.Object({
 			id: Type.String({ description: "Agent id returned by agent-start" }),
 			prompt: Type.String({
