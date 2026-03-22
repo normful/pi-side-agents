@@ -66,7 +66,7 @@ export function tmuxPipePaneToFile(windowId: string, logPath: string): void {
 }
 
 export function tmuxSendLine(windowId: string, line: string): void {
-	runOrThrow("tmux", ["send-keys", "-t", windowId, line, "C-m"]);
+	runOrThrow("tmux", ["send-keys", "-t", windowId, line, "Enter"]);
 }
 
 export function tmuxInterrupt(windowId: string): void {
@@ -81,7 +81,7 @@ export function tmuxSendPrompt(windowId: string, prompt: string): void {
 		);
 	}
 	runOrThrow("tmux", ["paste-buffer", "-d", "-t", windowId]);
-	runOrThrow("tmux", ["send-keys", "-t", windowId, "C-m"]);
+	runOrThrow("tmux", ["send-keys", "-t", windowId, "Enter"]);
 }
 
 /** Capture the currently visible tmux pane content (no scrollback). */
