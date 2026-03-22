@@ -171,7 +171,7 @@ describe("listRegisteredWorktrees", () => {
 		testDir = await setupTestDir();
 	});
 
-	test("RED: includes the main repo in worktree list", async () => {
+	test("includes the main repo in worktree list", async () => {
 		// Initialize a git repo for testing
 		const worktreeRepo = join(testDir, "repo");
 		await mkdir(worktreeRepo, { recursive: true });
@@ -188,7 +188,7 @@ describe("listRegisteredWorktrees", () => {
 		expect(paths[0]).toMatch(/^\//);
 	});
 
-	test("GREEN: includes main repo path in result", async () => {
+	test("includes main repo path in result", async () => {
 		const worktreeRepo = join(testDir, "repo");
 		await mkdir(worktreeRepo, { recursive: true });
 		await runGit(["init"], worktreeRepo);
@@ -205,7 +205,7 @@ describe("listRegisteredWorktrees", () => {
 		expect(containsMainRepo).toBe(true);
 	});
 
-	test("RED: returns resolved paths (absolute)", async () => {
+	test("returns resolved paths (absolute)", async () => {
 		const worktreeRepo = join(testDir, "repo");
 		await mkdir(worktreeRepo, { recursive: true });
 		await runGit(["init"], worktreeRepo);
@@ -218,7 +218,7 @@ describe("listRegisteredWorktrees", () => {
 		}
 	});
 
-	test("GREEN: includes additional worktrees added via git worktree add", async () => {
+	test("includes additional worktrees added via git worktree add", async () => {
 		const worktreeRepo = join(testDir, "repo");
 		await mkdir(worktreeRepo, { recursive: true });
 		await runGit(["init"], worktreeRepo);
@@ -241,7 +241,7 @@ describe("listRegisteredWorktrees", () => {
 		expect(containsWorktree).toBe(true);
 	});
 
-	test("RED: excludes non-worktree directories", async () => {
+	test("excludes non-worktree directories", async () => {
 		const worktreeRepo = join(testDir, "repo");
 		await mkdir(worktreeRepo, { recursive: true });
 		await runGit(["init"], worktreeRepo);
@@ -273,7 +273,7 @@ describe("scanOrphanWorktreeLocks", () => {
 		await runGit(["commit", "--allow-empty", "-m", "initial"], mainRepo);
 	});
 
-	test("RED: returns empty scan when no worktrees exist", async () => {
+	test("returns empty scan when no worktrees exist", async () => {
 		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
 
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
@@ -282,7 +282,7 @@ describe("scanOrphanWorktreeLocks", () => {
 		expect(result.blocked).toHaveLength(0);
 	});
 
-	test("GREEN: ignores worktrees without side-agent/ branches", async () => {
+	test("ignores worktrees without side-agent/ branches", async () => {
 		// Add a regular worktree (not side-agent)
 		const regularBranch = "regular-feature";
 		const regularWorktree = join(testDir, "regular-worktree");
@@ -299,7 +299,7 @@ describe("scanOrphanWorktreeLocks", () => {
 		expect(result.blocked).toHaveLength(0);
 	});
 
-	test("RED: detects orphan worktree with lock but no agent in registry", async () => {
+	test("detects orphan worktree with lock but no agent in registry", async () => {
 		// Add a side-agent worktree with a lock file
 		const agentId = "orphan-agent-123";
 		const sideBranch = `side-agent/${agentId}`;
@@ -324,7 +324,7 @@ describe("scanOrphanWorktreeLocks", () => {
 		expect(result.reclaimable.length + result.blocked.length).toBeGreaterThan(0);
 	});
 
-	test("GREEN: ignores worktree whose agent IS in registry", async () => {
+	test("ignores worktree whose agent IS in registry", async () => {
 		const agentId = "active-agent-456";
 		const sideBranch = `side-agent/${agentId}`;
 		const worktreePath = join(testDir, "active-worktree");
@@ -352,7 +352,7 @@ describe("scanOrphanWorktreeLocks", () => {
 		expect(result.blocked).toHaveLength(0);
 	});
 
-	test("RED: categorizes as blocked when lock has alive pid", async () => {
+	test("categorizes as blocked when lock has alive pid", async () => {
 		const agentId = "blocked-by-pid";
 		const sideBranch = `side-agent/${agentId}`;
 		const worktreePath = join(testDir, "blocked-pid-worktree");
@@ -379,7 +379,7 @@ describe("scanOrphanWorktreeLocks", () => {
 		expect(blocked?.blockers.some((b) => b.includes("pid"))).toBe(true);
 	});
 
-	test("GREEN: includes lockAgentId in orphan when present in lock", async () => {
+	test("includes lockAgentId in orphan when present in lock", async () => {
 		const agentId = "orphan-with-id";
 		const sideBranch = `side-agent/${agentId}`;
 		const worktreePath = join(testDir, "orphan-id-worktree");
@@ -405,7 +405,7 @@ describe("scanOrphanWorktreeLocks", () => {
 		expect(orphan?.lockAgentId).toBe(agentId);
 	});
 
-	test("RED: handles worktree with invalid lock file gracefully", async () => {
+	test("handles worktree with invalid lock file gracefully", async () => {
 		const agentId = "invalid-lock";
 		const sideBranch = `side-agent/${agentId}`;
 		const worktreePath = join(testDir, "invalid-lock-worktree");
