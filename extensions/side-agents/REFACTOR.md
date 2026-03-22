@@ -325,3 +325,13 @@ import { tmuxSendPrompt } from "./tmux.js";
 
 TypeScript compiles `.ts` to `.js`. At runtime the `.js` files exist next to the
 `.ts` files, so the `.js` import paths resolve correctly.
+
+# Refactoring test methodology
+
+IMPORTANT:
+
+AS YOU ARE REFACTORING, USE RED-GREEN TDD.
+
+1. First write new test files (use typescript). The test file should live in the same dir as the source file, and have same filename, but with `.test.ts` appended.
+2. Write them using `bun:test`. Run them so they fail. Use `bun test`.
+3. Write in the new copy of the implementation (should be nearly same as original version) to pass the test.
