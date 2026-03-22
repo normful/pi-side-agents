@@ -1,19 +1,12 @@
 import { run, runOrThrow, shellQuote, splitLines } from "./utils.js";
 
-const _ENV_AGENT_ID = "PI_SIDE_AGENT_ID";
-const _ENV_PARENT_SESSION = "PI_SIDE_PARENT_SESSION";
-const _ENV_PARENT_REPO = "PI_SIDE_PARENT_REPO";
-const _ENV_STATE_ROOT = "PI_SIDE_AGENTS_ROOT";
-const _ENV_RUNTIME_DIR = "PI_SIDE_RUNTIME_DIR";
-// Reference constants to satisfy noUnusedLocals
-const _refs = {
-	_ENV_AGENT_ID,
-	_ENV_PARENT_SESSION,
-	_ENV_PARENT_REPO,
-	_ENV_STATE_ROOT,
-	_ENV_RUNTIME_DIR,
-};
-void _refs;
+// These constants must match what the pi-side-agents extension reads.
+// Keep in sync with extensions/side-agents.ts
+export const PI_SIDE_AGENT_ID = "PI_SIDE_AGENT_ID";
+export const PI_SIDE_PARENT_SESSION = "PI_SIDE_PARENT_SESSION";
+export const PI_SIDE_PARENT_REPO = "PI_SIDE_PARENT_REPO";
+export const PI_SIDE_AGENTS_ROOT = "PI_SIDE_AGENTS_ROOT";
+export const PI_SIDE_RUNTIME_DIR = "PI_SIDE_RUNTIME_DIR";
 
 export function ensureTmuxReady(): void {
 	const version = run("tmux", ["-V"]);
@@ -110,27 +103,47 @@ export function buildLaunchScript(params: {
 	modelSpec?: string;
 	runtimeDir: string;
 }): string {
+	// Shell-quoted values for use in the generated script
+	const agentId = shellQuote(params.agentId);
+	const parentSession = shellQuote(params.parentSessionId ?? "");
+	const parentRepo = shellQuote(params.parentRepoRoot);
+	const stateRoot = shellQuote(params.stateRoot);
+	const worktree = shellQuote(params.worktreePath);
+	const windowId = shellQuote(params.tmuxWindowId);
+	const promptFile = shellQuote(params.promptPath);
+	const exitFile = shellQuote(params.exitFile);
+	const modelSpec = shellQuote(params.modelSpec ?? "");
+	const runtimeDir = shellQuote(params.runtimeDir);
+
+	// Direct export of known environment variable names
+	// Using $$ to produce a single $ that bash expands, then the const value
+	const envAgentId = PI_SIDE_AGENT_ID;
+	const envParentSession = PI_SIDE_PARENT_SESSION;
+	const envParentRepo = PI_SIDE_PARENT_REPO;
+	const envStateRoot = PI_SIDE_AGENTS_ROOT;
+	const envRuntimeDir = PI_SIDE_RUNTIME_DIR;
+
 	return `#!/usr/bin/env bash
 set -euo pipefail
 
-AGENT_ID=${shellQuote(params.agentId)}
-PARENT_SESSION=${shellQuote(params.parentSessionId ?? "")}
-PARENT_REPO=${shellQuote(params.parentRepoRoot)}
-STATE_ROOT=${shellQuote(params.stateRoot)}
-WORKTREE=${shellQuote(params.worktreePath)}
-WINDOW_ID=${shellQuote(params.tmuxWindowId)}
-PROMPT_FILE=${shellQuote(params.promptPath)}
-EXIT_FILE=${shellQuote(params.exitFile)}
-MODEL_SPEC=${shellQuote(params.modelSpec ?? "")}
-RUNTIME_DIR=${shellQuote(params.runtimeDir)}
+AGENT_ID=${agentId}
+PARENT_SESSION=${parentSession}
+PARENT_REPO=${parentRepo}
+STATE_ROOT=${stateRoot}
+WORKTREE=${worktree}
+WINDOW_ID=${windowId}
+PROMPT_FILE=${promptFile}
+EXIT_FILE=${exitFile}
+MODEL_SPEC=${modelSpec}
+RUNTIME_DIR=${runtimeDir}
 START_SCRIPT="$WORKTREE/.pi/side-agent-start.sh"
 CHILD_SKILLS_DIR="$WORKTREE/.pi/side-agent-skills"
 
-export \${_ENV_AGENT_ID}="$AGENT_ID"
-export \${_ENV_PARENT_SESSION}="$PARENT_SESSION"
-export \${_ENV_PARENT_REPO}="$PARENT_REPO"
-export \${_ENV_STATE_ROOT}="$STATE_ROOT"
-export \${_ENV_RUNTIME_DIR}="$RUNTIME_DIR"
+export ${envAgentId}="$AGENT_ID"
+export ${envParentSession}="$PARENT_SESSION"
+export ${envParentRepo}="$PARENT_REPO"
+export ${envStateRoot}="$STATE_ROOT"
+export ${envRuntimeDir}="$RUNTIME_DIR"
 
 write_exit() {
   local code="$1"
