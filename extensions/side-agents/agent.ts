@@ -2,7 +2,7 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import { promises as fs } from "node:fs";
 import {
 	ensureTmuxReady,
@@ -18,14 +18,13 @@ import {
 import { ensureDir, fileExists, readJsonFile, atomicWrite } from "./fs.js";
 import { run, sleep, stringifyError, tmuxWindowExists } from "./utils.js";
 import {
-	loadRegistry,
 	mutateRegistry,
 	setRecordStatus,
 	isTerminalStatus,
 	prepareFreshRuntimeDir,
 	getStateRoot,
 	getMetaDir,
-	getRuntimeDir,
+	isChildRuntime,
 	type AgentRecord,
 	type AgentStatus,
 	type StartAgentParams,
@@ -37,7 +36,6 @@ import {
 	slugFromTask,
 	deduplicateSlug,
 	existingAgentIds,
-	listWorktreeSlots,
 } from "./slug.js";
 import {
 	allocateWorktree,
@@ -152,7 +150,7 @@ export function parseAgentCommandArgs(raw: string): {
 
 	return {
 		task: rest.trim(),
-		model,
+		...(model ? { model } : {}),
 	};
 }
 
@@ -219,7 +217,7 @@ async function generateSlug(
 					"Generate a 2-3 word kebab-case slug summarizing the given task. Reply with ONLY the slug, nothing else. Examples: fix-auth-leak, add-retry-logic, update-readme",
 				messages: [userMessage],
 			},
-			{ apiKey, maxTokens: 30 },
+			{ maxTokens: 30, ...(apiKey ? { apiKey } : {}) },
 		);
 
 		const raw = response.content
@@ -254,7 +252,7 @@ export async function resolveModelSpecForChild(
 		? `${ctx.model.provider}/${ctx.model.id}`
 		: undefined;
 	if (!requested || requested.trim().length === 0) {
-		return { modelSpec: currentModelSpec };
+		return { ...(currentModelSpec ? { modelSpec: currentModelSpec } : {}) };
 	}
 
 	const trimmed = requested.trim();
@@ -281,7 +279,7 @@ export async function resolveModelSpecForChild(
 		const exact = available.filter((model) => model.id === pattern);
 
 		if (exact.length === 1) {
-			const match = exact[0];
+			const match = exact[0]!;
 			return {
 				modelSpec: withThinking(`${match.provider}/${match.id}`, thinking),
 			};
@@ -484,9 +482,9 @@ export async function startAgent(
 			agentId = deduplicateSlug(slug, existing);
 			registry.agents[agentId] = {
 				id: agentId,
-				parentSessionId,
+				...(parentSessionId ? { parentSessionId } : {}),
 				task: params.task,
-				model: params.model,
+				...(params.model ? { model: params.model } : {}),
 				status: "allocating_worktree",
 				startedAt: now,
 				updatedAt: now,
@@ -497,7 +495,7 @@ export async function startAgent(
 			repoRoot,
 			stateRoot,
 			agentId,
-			parentSessionId,
+			...(parentSessionId ? { parentSessionId } : {}),
 		});
 		allocatedWorktreePath = worktree.worktreePath;
 		allocatedBranch = worktree.branch;
@@ -582,14 +580,14 @@ export async function startAgent(
 
 		const launchScript = buildLaunchScript({
 			agentId,
-			parentSessionId,
+			...(parentSessionId ? { parentSessionId } : {}),
 			parentRepoRoot: repoRoot,
 			stateRoot,
 			worktreePath: worktree.worktreePath,
 			tmuxWindowId: windowId,
 			promptPath,
 			exitFile,
-			modelSpec,
+			...(modelSpec ? { modelSpec } : {}),
 			runtimeDir,
 		});
 		await atomicWrite(launchScriptPath, launchScript);
@@ -611,7 +609,7 @@ export async function startAgent(
 			record.promptPath = promptPath;
 			record.logPath = logPath;
 			record.exitFile = exitFile;
-			record.model = modelSpec;
+			if (modelSpec) record.model = modelSpec;
 			await setRecordStatus(stateRoot, record, "running");
 			record.warnings = [...(record.warnings ?? []), ...aggregatedWarnings];
 		});
@@ -738,7 +736,7 @@ export async function waitForAny(
 
 		for (const id of uniqueIds) {
 			const checked = await agentCheckPayload(stateRoot, id);
-			const ok = checked.ok === true;
+			const ok = checked["ok"] === true;
 			if (!ok) {
 				if (knownIds.has(id)) {
 					return {
@@ -753,7 +751,7 @@ export async function waitForAny(
 
 			knownIds.add(id);
 			// biome-ignore lint/suspicious/noExplicitAny: ignored using `--suppress`
-			const status = (checked.agent as any)?.status as AgentStatus | undefined;
+			const status = (checked["agent"] as any)?.status as AgentStatus | undefined;
 			if (!status) continue;
 			if (waitStateSet.has(status)) {
 				return checked;
@@ -808,8 +806,8 @@ export async function ensureChildSessionLinked(
 		if (!existing) {
 			registry.agents[agentId] = {
 				id: agentId,
-				parentSessionId: parentSession,
-				childSessionId: childSession,
+				...(parentSession ? { parentSessionId: parentSession } : {}),
+				...(childSession ? { childSessionId: childSession } : {}),
 				task: "(child session linked without parent registry record)",
 				status: "running",
 				startedAt: new Date().toISOString(),
@@ -818,8 +816,10 @@ export async function ensureChildSessionLinked(
 			return;
 		}
 
-		existing.childSessionId = childSession;
-		existing.parentSessionId = existing.parentSessionId ?? parentSession;
+		if (childSession) existing.childSessionId = childSession;
+		if (parentSession) {
+			existing.parentSessionId = existing.parentSessionId ?? parentSession;
+		}
 		let statusChanged = false;
 		if (!isTerminalStatus(existing.status)) {
 			statusChanged = await setRecordStatus(stateRoot, existing, "running");
@@ -832,8 +832,8 @@ export async function ensureChildSessionLinked(
 	const lockPath = join(ctx.cwd, ".pi", "active.lock");
 	if (await fileExists(lockPath)) {
 		const lock = (await readJsonFile<Record<string, unknown>>(lockPath)) ?? {};
-		lock.sessionId = childSession;
-		lock.agentId = agentId;
+		lock["sessionId"] = childSession;
+		lock["agentId"] = agentId;
 		// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 		await atomicWrite(lockPath, JSON.stringify(lock, null, 2) + "\n");
 	}
@@ -854,6 +854,7 @@ export async function ensureChildSessionLinked(
 }
 
 export { isChildRuntime } from "./registry.js";
+export { summarizeTask } from "./prompt.js";
 
 // Child-session rendering
 
@@ -886,19 +887,24 @@ export function collectStatusTransitions(
 	for (const record of agents) {
 		const currentSnapshot: AgentStatusSnapshot = {
 			status: record.status,
-			tmuxWindowIndex: record.tmuxWindowIndex,
+			...(record.tmuxWindowIndex !== undefined
+				? { tmuxWindowIndex: record.tmuxWindowIndex }
+				: {}),
 		};
 		next.set(record.id, currentSnapshot);
 
 		const previousSnapshot = previous?.get(record.id);
 		if (!previousSnapshot || previousSnapshot.status === record.status)
 			continue;
+		const transitionTmuxWindowIndex =
+			record.tmuxWindowIndex ?? previousSnapshot.tmuxWindowIndex;
 		transitions.push({
 			id: record.id,
 			fromStatus: previousSnapshot.status,
 			toStatus: record.status,
-			tmuxWindowIndex:
-				record.tmuxWindowIndex ?? previousSnapshot.tmuxWindowIndex,
+			...(transitionTmuxWindowIndex !== undefined
+				? { tmuxWindowIndex: transitionTmuxWindowIndex }
+				: {}),
 		});
 	}
 
@@ -910,7 +916,9 @@ export function collectStatusTransitions(
 				id: agentId,
 				fromStatus: previousSnapshot.status,
 				toStatus: "done",
-				tmuxWindowIndex: previousSnapshot.tmuxWindowIndex,
+				...(previousSnapshot.tmuxWindowIndex !== undefined
+					? { tmuxWindowIndex: previousSnapshot.tmuxWindowIndex }
+					: {}),
 			});
 		}
 	}

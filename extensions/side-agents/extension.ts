@@ -1,7 +1,5 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { basename } from "node:path";
 import { Type } from "@sinclair/typebox";
 import {
 	startAgent,
@@ -17,11 +15,8 @@ import {
 	ensureChildSessionLinked,
 	parseAgentCommandArgs,
 	summarizeTask,
-	collectStatusTransitions,
-	emitStatusTransitions,
-	isChildRuntime,
 } from "./agent.js";
-import { getStateRoot, isTerminalStatus, mutateRegistry } from "./registry.js";
+import { getStateRoot, mutateRegistry } from "./registry.js";
 import {
 	scanOrphanWorktreeLocks,
 	reclaimOrphanWorktreeLocks,
@@ -55,7 +50,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 				ctx.hasUI && ctx.ui.notify("Starting side-agent…", "info");
 				const started = await startAgent(pi, ctx, {
 					task: parsed.task,
-					model: parsed.model,
+					...(parsed.model ? { model: parsed.model } : {}),
 					includeSummary: true,
 				});
 
@@ -247,7 +242,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 				const started = await startAgent(pi, ctx, {
 					task: params.description,
 					branchHint: params.branchHint,
-					model: params.model,
+					...(params.model ? { model: params.model } : {}),
 					includeSummary: false,
 				});
 				return {

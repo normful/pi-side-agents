@@ -6,7 +6,6 @@ import {
 	splitModelPatternAndThinking,
 	normalizeAgentId,
 } from "./agent.js";
-import type { AgentStatus } from "./registry.js";
 
 describe("statusShort", () => {
 	test("returns abbreviated status", () => {
