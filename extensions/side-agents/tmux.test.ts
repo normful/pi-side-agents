@@ -26,6 +26,23 @@ describe("buildLaunchScript", () => {
 		expect(script.startsWith("#!/usr/bin/env bash")).toBe(true);
 	});
 
+	test("checks for cco command and exits with helpful message if missing", () => {
+		const script = buildLaunchScript({
+			agentId: "test-agent",
+			parentRepoRoot: "/repo",
+			stateRoot: "/repo",
+			worktreePath: "/repo/.worktrees/agent-test-agent",
+			tmuxWindowId: "@1",
+			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
+			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
+			runtimeDir: "/repo/.pi/runtime/test-agent",
+		});
+
+		expect(script).toContain("command -v cco");
+		expect(script).toContain("https://github.com/nikvdp/cco");
+		expect(script).toContain("cco' command not found");
+	});
+
 	test("exports PI_SIDE_AGENT_ID environment variable (uses bash variable reference)", () => {
 		const script = buildLaunchScript({
 			agentId: "my-test-agent",
@@ -167,8 +184,8 @@ describe("buildLaunchScript", () => {
 			runtimeDir: "/repo/.pi/runtime/test-agent",
 		});
 
-		// PI_CMD is initialized but MODEL_SPEC is empty, so the conditional prevents --model
-		expect(script).toContain("PI_CMD=(pi)");
+		// PI_CMD is initialized with cco wrapper but MODEL_SPEC is empty, so the conditional prevents --model
+		expect(script).toContain('PI_CMD=(cco --safe --add-dir "~/.bun:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$RUNTIME_DIR:rw" pi)');
 		expect(script).toContain("MODEL_SPEC=''");
 		// The conditional check prevents adding --model when empty
 		expect(script).toContain('if [[ -n "$MODEL_SPEC" ]]; then');
@@ -187,7 +204,7 @@ describe("buildLaunchScript", () => {
 			runtimeDir: "/repo/.pi/runtime/test-agent",
 		});
 
-		expect(script).toContain("PI_CMD=(pi)");
+		expect(script).toContain('PI_CMD=(cco --safe --add-dir "~/.bun:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$RUNTIME_DIR:rw" pi)');
 		expect(script).toContain('PI_CMD+=(--model "$MODEL_SPEC")');
 		expect(script).toContain("MODEL_SPEC='anthropic/claude-3-5-sonnet'");
 	});

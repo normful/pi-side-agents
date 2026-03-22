@@ -126,6 +126,14 @@ export function buildLaunchScript(params: {
 	return `#!/usr/bin/env bash
 set -euo pipefail
 
+# Verify cco is available
+if ! command -v cco &>/dev/null; then
+  echo "[side-agent] Error: 'cco' command not found." >&2
+  echo "[side-agent] cco is required for filesystem sandboxing" >&2
+  echo "[side-agent] See: https://github.com/nikvdp/cco" >&2
+  exit 1
+fi
+
 AGENT_ID=${agentId}
 PARENT_SESSION=${parentSession}
 PARENT_REPO=${parentRepo}
@@ -167,7 +175,7 @@ if [[ -x "$START_SCRIPT" ]]; then
   fi
 fi
 
-PI_CMD=(pi)
+PI_CMD=(cco --safe --add-dir "~/.bun:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$RUNTIME_DIR:rw" pi)
 if [[ -n "$MODEL_SPEC" ]]; then
   PI_CMD+=(--model "$MODEL_SPEC")
 fi
