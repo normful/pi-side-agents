@@ -181,7 +181,7 @@ if [[ -n "$MODEL_SPEC" ]]; then
 fi
 
 set +e
-"\${PI_CMD[@]}" "@$PROMPT_FILE"
+"\${PI_CMD[@]}" "$(cat "$PROMPT_FILE")"
 exit_code=$?
 set -e
 
