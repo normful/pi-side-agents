@@ -680,6 +680,7 @@ async function createHarness(t, options = {}) {
 	await mkdir(repoRoot, { recursive: true });
 	await mkdir(agentDir, { recursive: true });
 	await mkdir(parentSessionDir, { recursive: true });
+	console.error(`[DEBUG] createHarness: created dirs, parentSessionDir=${parentSessionDir}`);
 
 	run("git", ["init", "-b", "main"], { cwd: repoRoot });
 	run("git", ["config", "user.email", "integration@example.com"], {
@@ -791,6 +792,7 @@ async function createHarness(t, options = {}) {
 		launchScript,
 		`#!/usr/bin/env bash
 set -euo pipefail
+echo "[DEBUG-LAUNCH] starting pi with model=${MODEL_SPEC}" >&2
 cd ${JSON.stringify(repoRoot)}
 exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir ${JSON.stringify(parentSessionDir)} --no-skills --no-prompt-templates --no-themes
 `,
@@ -807,6 +809,13 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 	console.error(`[DEBUG] createHarness: launchScript=${launchScript}`);
 	console.error(`[DEBUG] createHarness: PI_CODING_AGENT_DIR=${agentDir}`);
 	console.error(`[DEBUG] createHarness: PI_SIDE_AGENTS_ROOT=${repoRoot}`);
+	
+	// Verify pi is in PATH and show env vars
+	const whichPi = run("which", ["pi"]);
+	console.error(`[DEBUG] createHarness: which pi = ${whichPi.stdout.trim()}`);
+	console.error(`[DEBUG] createHarness: PATH = ${process.env.PATH}`);
+	console.error(`[DEBUG] createHarness: PI_CODING_AGENT_DIR env = ${process.env.PI_CODING_AGENT_DIR}`);
+	
 	console.error("[DEBUG] createHarness: starting tmux session...");
 
 	tmux(
@@ -825,7 +834,12 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 		{ env },
 	);
 	console.error(`[DEBUG] createHarness: tmux session created: ${sessionName}`);
-
+	
+	// Give it a moment and check if pi is running
+	await sleep(2000);
+	const listResult = tmux({ tmuxSocket }, ["list-panes", "-t", sessionName, "-F", "#{pane_pid} #{pane_start_command}"], { allowFailure: true });
+	console.error(`[DEBUG] createHarness: pane info: ${listResult.stdout.trim() || listResult.stderr.trim()}`);
+	
 	const harness = {
 		rootDir,
 		repoRoot,
@@ -849,7 +863,7 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 			const hasCommands = pane.includes("/ for commands");
 			const hasExtension = pane.includes("side-agents.ts");
 			if (!hasCommands || !hasExtension) {
-				console.error(`[DEBUG] waitFor parent pi: pane preview: ${pane.slice(-200)}`);
+				console.error(`[DEBUG] waitFor parent pi: pane len=${pane.length}, preview: ${JSON.stringify(pane.slice(-300))}`);
 			}
 			return hasCommands && hasExtension;
 		},
