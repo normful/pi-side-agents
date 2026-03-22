@@ -175,7 +175,7 @@ if [[ -x "$START_SCRIPT" ]]; then
   fi
 fi
 
-PI_CMD=(cco --safe --add-dir "~/.bun:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$RUNTIME_DIR:rw" --add-dir "$(dirname "$PARENT_REPO"):ro" --add-dir "$PARENT_REPO:ro" --add-dir "$STATE_ROOT:ro" pi --skill "$CHILD_SKILLS_DIR")
+PI_CMD=(cco --safe --add-dir "~/.bun:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$(dirname "$PARENT_SESSION"):ro" --add-dir "$PARENT_REPO:ro" --add-dir "$STATE_ROOT:ro" --add-dir "$RUNTIME_DIR:rw" pi --skill "$CHILD_SKILLS_DIR")
 if [[ -n "$MODEL_SPEC" ]]; then
   PI_CMD+=(--model "$MODEL_SPEC")
 fi
