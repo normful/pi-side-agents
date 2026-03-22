@@ -161,7 +161,7 @@ export async function buildKickoffPrompt(
 		const response = await complete(
 			ctx.model,
 			{ systemPrompt: SUMMARY_SYSTEM_PROMPT, messages: [userMessage] },
-			{ apiKey },
+			apiKey ? { apiKey } : {},
 		);
 
 		const summary = normalizeGeneratedSummary(
