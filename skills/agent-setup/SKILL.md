@@ -242,7 +242,7 @@ This is a skill for the **child agent** (not this session) that tells it how to 
 ```markdown
 ---
 name: finish
-description: Rebase the branch with current work onto upstream and fast-forward it after explicit user sign-off (e.g. "LGTM")
+description: Rebase the branch with current work onto upstream and fast-forward it after explicit user sign-off (e.g. lgtm)
 ---
 
 # Parallel-agent finish workflow
@@ -267,7 +267,7 @@ When the user explicitly approves the work (e.g. says "LGTM", "ship it", "merge 
 ```markdown
 ---
 name: finish
-description: Open a PR for the branch with current work to upstream after explicit user sign-off (e.g. "LGTM")
+description: Open a PR for the branch with current work to upstream after explicit user sign-off (e.g. lgtm)
 ---
 
 # Parallel-agent finish workflow
