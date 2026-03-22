@@ -39,6 +39,12 @@ Preferred content (but only when relevant):
 - decisions already made
 - key files/components to inspect
 - risks/caveats`;
+const PLAIN_GIT_INSTRUCTIONS = `When running read-only git commands, run with additional env vars, like this:
+  GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null git status
+
+When running commit or merge commands, run with additional author and committed env vars, like this:
+  GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_AUTHOR_NAME="AI" GIT_AUTHOR_EMAIL="none" GIT_COMMITTER_NAME="AI" GIT_COMMITTER_EMAIL="none" git commit
+`;
 
 export function normalizeGeneratedSummary(raw: string): string {
 	const cleaned = stripTerminalNoise(raw).trim();
@@ -185,6 +191,9 @@ export async function buildKickoffPrompt(
 			"",
 			"## Relevant parent context",
 			summary,
+			"",
+			"## Git Usage",
+			PLAIN_GIT_INSTRUCTIONS,
 		].join("\n");
 
 		return { prompt };
