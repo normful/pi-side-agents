@@ -4,8 +4,8 @@ import { basename } from "node:path";
 import type {
 	ExtensionContext,
 	SessionEntry,
-	Message,
 } from "@mariozechner/pi-coding-agent";
+import type { Message } from "@mariozechner/pi-ai";
 import {
 	convertToLlm,
 	serializeConversation,
