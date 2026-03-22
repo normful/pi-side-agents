@@ -5,16 +5,17 @@
 ```
 extension.ts
   └── agent.ts
-        ├── tmux.ts ───────────────────────────────┐
-        ├── fs.ts ─────────────────────────────────┤
-        ├── slug.ts ────────────────────────────────┤
-        ├── worktree.ts ───────────────────────────┤
-        │     └── slug.ts ──────────────────────────┤
-        ├── prompt.ts ─────────────────────────────┤
-        │     └── registry.ts ─────────────────────┤
-        └── registry.ts ───────────────────────────┤
-              └── fs.ts ───────────────────────────┤
-                                              utils.ts
+        ├── tmux.ts ───────────────────────────────────────┐
+        ├── fs.ts ──────────────────────────────────────────┤
+        ├── slug.ts ────────────────────────────────────────┤
+        ├── worktree.ts ────────────────────────────────────┤
+        │     └── slug.ts ──────────────────────────────────┤
+        ├── prompt.ts ──────────────────────────────────────┤
+        │     └── registry.ts ──────────────────────────────┤
+        │           └── fs.ts ──────────────────────────────┤
+        └── registry.ts ────────────────────────────────────┤
+              └── fs.ts ────────────────────────────────────┤
+                                              utils.ts ─────┘
 
 prompt.ts ──→ registry.ts
 slug.ts ──→ utils.ts, registry.ts
@@ -22,7 +23,7 @@ fs.ts ──→ utils.ts
 ```
 
 **No circular dependencies.** `tmuxWindowExists` lives in `utils.ts` to break the
-`worktree → tmux → worktree` cycle.
+`worktree → tmux → worktree` cycle. `getStateRoot` lives in `registry.ts`.
 
 ---
 
@@ -37,7 +38,8 @@ patterns, and numeric limits.
 
 ### `utils.ts`
 
-Pure utility functions with no side-agents-specific imports.
+Pure utility functions. **No internal project imports** (only Node built-ins).
+Receives `normalizeWaitStates` (imports status arrays from `constants.ts`).
 
 - `nowIso()`
 - `sleep(ms)`
@@ -46,7 +48,7 @@ Pure utility functions with no side-agents-specific imports.
 - `truncateWithEllipsis(text, maxChars)`
 - `stripTerminalNoise(text)`
 - `splitLines(text)`
-- `normalizeWaitStates(input?)`
+- `normalizeWaitStates(input?)` — imports `ALL_AGENT_STATUSES`, `DEFAULT_WAIT_STATES` from `constants.ts`
 - `tailLines(text, count)`
 - `run(command, args, options?)` → `CommandResult`
 - `runOrThrow(command, args, options?)` → `CommandResult`
@@ -70,9 +72,10 @@ Filesystem helpers. Imports `utils.ts`.
 
 ### `slug.ts`
 
-Slug generation + worktree slot/orphan lock types.
+Slug generation + worktree slot/orphan lock types. Imports `utils.ts`, `registry.ts`
+(for `ExtensionContext`, `RegistryFile` types, `runOrThrow`).
 
-Types: `WorktreeSlot`, `OrphanWorktreeLock`, `OrphanWorkloadLockScan`.
+Types: `WorktreeSlot`, `OrphanWorktreeLock`, `OrphanWorktreeLockScan`.
 
 - `sanitizeSlug(raw)`
 - `slugFromTask(task)`
@@ -82,8 +85,6 @@ Types: `WorktreeSlot`, `OrphanWorktreeLock`, `OrphanWorkloadLockScan`.
 - `listWorktreeSlots(repoRoot)` → `WorktreeSlot[]`
 - `parseOptionalPid(value)`
 - `isPidAlive(pid?)`
-
-Imports: `utils.ts`, `registry.ts` (for `ExtensionContext`, `RegistryFile` types).
 
 ---
 
@@ -138,11 +139,12 @@ Tmux operations. Imports `utils.ts`.
 
 ### `registry.ts`
 
-Agent types, registry file helpers, and status helpers. Imports `fs.ts`.
+Agent types, registry file helpers, status helpers, and path utilities. Imports
+`fs.ts`. **`getStateRoot` lives here.**
 
-Types: `AgentStatus`, `AgentRecord`, `RegistryFile`, `AllocateWorktreeResult`,
-`StartAgentParams`, `StartAgentResult`, `PrepareRuntimeDirResult`, `ExitMarker`,
-`RefreshRuntimeResult`.
+Types: `AgentStatus`, `AgentRecord`, `RegistryFile`, `StartAgentParams`,
+`StartAgentResult`, `AllocateWorktreeResult`, `PrepareRuntimeDirResult`,
+`ExitMarker`, `RefreshRuntimeResult`, `CommandResult` (re-exported for convenience).
 
 - `emptyRegistry()` → `RegistryFile`
 - `loadRegistry(stateRoot)` → `RegistryFile`
@@ -150,7 +152,7 @@ Types: `AgentStatus`, `AgentRecord`, `RegistryFile`, `AllocateWorktreeResult`,
 - `mutateRegistry(stateRoot, mutator)` → `RegistryFile`
 - `isTerminalStatus(status)` → `boolean`
 - `setRecordStatus(stateRoot, record, nextStatus)` → `boolean`
-- `getStateRoot(ctx)` → `string`
+- **`getStateRoot(ctx)`** → `string` **(moved from index.ts)**
 - `getMetaDir(stateRoot)` → `string`
 - `getRegistryPath(stateRoot)` → `string`
 - `getRuntimeDir(stateRoot, agentId)` → `string`
@@ -162,11 +164,11 @@ Types: `AgentStatus`, `AgentRecord`, `RegistryFile`, `AllocateWorktreeResult`,
 
 ### `agent.ts`
 
-Agent lifecycle, status helpers, and rendering types. Imports `registry.ts`,
-`tmux.ts`, `fs.ts`, `slug.ts`, `worktree.ts`, `prompt.ts`.
+Agent lifecycle, status helpers, and rendering. Imports `registry.ts`, `tmux.ts`,
+`fs.ts`, `slug.ts`, `worktree.ts`, `prompt.ts`. Re-imports `StartAgentParams`,
+`StartAgentResult` from `registry.ts`.
 
-Types: `StartAgentParams`, `StartAgentResult`, `AgentStatusSnapshot`,
-`StatusTransitionNotice`, `RefreshRuntimeResult`.
+Types: `AgentStatusSnapshot`, `StatusTransitionNotice`, `RefreshRuntimeResult`.
 
 - `statusShort(status)` → `string`
 - `statusColorRole(status)` → `"warning" | "muted" | "accent" | "error"`
@@ -205,8 +207,8 @@ Module-level mutable state (`statusPollTimer`, `statusPollContext`,
 
 Extension registration only. Imports `agent.ts`.
 
-- `sideAgentsExtension(pi)` — registers all commands, tools, and event
-  handlers; contains no business logic.
+- `sideAgentsExtension(pi)` — registers all commands, tools, and event handlers;
+  contains no business logic.
 
 ---
 
@@ -218,6 +220,57 @@ Re-exports the default export only:
 import sideAgentsExtension from "./extension.js";
 export default sideAgentsExtension;
 ```
+
+---
+
+## Test migration strategy
+
+### Integration tests (`tests/integration/side-agents.integration.test.mjs`)
+
+The integration tests import the extension source via a shim file written by
+`createHarness`:
+
+```ts
+// repo/.pi/extensions/side-agents.ts  (written by createHarness)
+export { default } from "../../../extensions/side-agents/index.ts";
+```
+
+After the refactor, `index.ts` re-exports from `extension.js` as planned. The
+shim and all paths through it continue to work without modification. No
+integration test changes are needed.
+
+If the `EXTENSION_SOURCE` constant is ever updated, point it at
+`extensions/side-agents/extension.ts` instead — both paths are equivalent.
+
+All test assertions (registry shapes, tmux window IDs, worktree paths, backlog
+content, session JSONL tool-result payloads) are behavioral and unchanged.
+
+### Unit tests (`tests/unit/tool-contract.test.mjs`)
+
+**Phase 1 — During refactor**: Tests use standalone JS re-implementations with
+no TS imports at all. No changes needed.
+
+**Phase 2 — Post-refactor** (follow-up cleanup): Create
+`tests/unit/helpers.mjs` that imports and re-exports the pure, side-effect-free
+functions from the refactored modules' compiled `.js` output:
+
+```js
+// tests/unit/helpers.mjs
+import { isTerminalStatus } from "../extensions/side-agents/registry.js";
+import { normalizeWaitStates } from "../extensions/side-agents/utils.js";
+import { sanitizeSlug, slugFromTask, deduplicateSlug } from "../extensions/side-agents/slug.js";
+import { collectStatusTransitions } from "../extensions/side-agents/agent.js";
+import { sanitizeBacklogLines, selectBacklogTailLines } from "../extensions/side-agents/prompt.js";
+import { summarizeTask } from "../extensions/side-agents/prompt.js";
+import { cleanupWorktreeLockBestEffort } from "../extensions/side-agents/worktree.js";
+// ... re-export everything inline helpers currently cover
+export { isTerminalStatus, normalizeWaitStates, sanitizeSlug, slugFromTask, deduplicateSlug, collectStatusTransitions, sanitizeBacklogLines, selectBacklogTailLines, summarizeTask, cleanupWorktreeLockBestEffort, /* etc. */ };
+```
+
+Migrate the unit tests' inline re-implementations → `helpers.mjs` imports as a
+post-refactor follow-up. The `waitForAnyFirstPass` helper (reads a real temp
+registry JSON) works unchanged — it operates on file-system state, not module
+internals.
 
 ---
 
@@ -235,5 +288,5 @@ import { tmuxSendPrompt } from "./tmux.js";
 
 ## Build / compile note
 
-TypeScript compiles `.ts` to `.js`. At runtime the `.js` files exist
-next to the `.ts` files, so the `.js` import paths resolve correctly.
+TypeScript compiles `.ts` to `.js`. At runtime the `.js` files exist next to the
+`.ts` files, so the `.js` import paths resolve correctly.
