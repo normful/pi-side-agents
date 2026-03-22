@@ -80,9 +80,10 @@ export function tailLines(text: string, count: number): string[] {
 	return splitLines(text).slice(-count);
 }
 
-export function normalizeWaitStates(
-	input?: string[],
-): { values: (typeof ALL_AGENT_STATUSES)[number][]; error?: string } {
+export function normalizeWaitStates(input?: string[]): {
+	values: (typeof ALL_AGENT_STATUSES)[number][];
+	error?: string;
+} {
 	if (!input || input.length === 0) {
 		return { values: [...DEFAULT_WAIT_STATES] };
 	}
@@ -95,7 +96,9 @@ export function normalizeWaitStates(
 	}
 
 	const known = new Set(ALL_AGENT_STATUSES);
-	const invalid = trimmed.filter((value) => !known.has(value as typeof ALL_AGENT_STATUSES[number]));
+	const invalid = trimmed.filter(
+		(value) => !known.has(value as (typeof ALL_AGENT_STATUSES)[number]),
+	);
 	if (invalid.length > 0) {
 		return {
 			values: [],
@@ -144,7 +147,9 @@ export function runOrThrow(
 ): CommandResult {
 	const result = run(command, args, options);
 	if (!result.ok) {
-		const reason = result.error ? `error=${result.error}` : `exit=${result.status}`;
+		const reason = result.error
+			? `error=${result.error}`
+			: `exit=${result.status}`;
 		throw new Error(
 			`Command failed: ${command} ${args.join(" ")} (${reason})\n${result.stderr || result.stdout}`.trim(),
 		);

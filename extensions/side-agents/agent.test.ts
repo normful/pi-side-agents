@@ -49,19 +49,25 @@ describe("parseAgentCommandArgs", () => {
 	});
 
 	test("extracts model with -model flag", () => {
-		const result = parseAgentCommandArgs("-model anthropic/claude-3 fix the bug");
+		const result = parseAgentCommandArgs(
+			"-model anthropic/claude-3 fix the bug",
+		);
 		expect(result.task).toBe("fix the bug");
 		expect(result.model).toBe("anthropic/claude-3");
 	});
 
 	test("handles model at start of args", () => {
-		const result = parseAgentCommandArgs("-model openai/gpt-4o task description");
+		const result = parseAgentCommandArgs(
+			"-model openai/gpt-4o task description",
+		);
 		expect(result.task).toBe("task description");
 		expect(result.model).toBe("openai/gpt-4o");
 	});
 
 	test("handles multiple -model flags (uses first)", () => {
-		const result = parseAgentCommandArgs("-model first/model -model second/model task");
+		const result = parseAgentCommandArgs(
+			"-model first/model -model second/model task",
+		);
 		expect(result.model).toBe("first/model");
 	});
 

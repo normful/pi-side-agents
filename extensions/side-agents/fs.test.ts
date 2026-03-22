@@ -1,7 +1,13 @@
 import { describe, expect, test, afterAll } from "bun:test";
 import { mkdir, rm, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { fileExists, ensureDir, readJsonFile, atomicWrite, withFileLock } from "./fs.js";
+import {
+	fileExists,
+	ensureDir,
+	readJsonFile,
+	atomicWrite,
+	withFileLock,
+} from "./fs.js";
 
 describe("fileExists", () => {
 	test("returns true for existing file", async () => {

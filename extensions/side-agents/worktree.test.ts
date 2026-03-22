@@ -158,7 +158,10 @@ describe("reclaimOrphanWorktreeLocks", () => {
 });
 
 // Helper
-const testBaseDir = join(process.env.TMPDIR || "/tmp", "side-agents-worktree-test");
+const testBaseDir = join(
+	process.env.TMPDIR || "/tmp",
+	"side-agents-worktree-test",
+);
 let testCounter = 0;
 
 async function setupTestDir(): Promise<string> {

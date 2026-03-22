@@ -1,5 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import { nowIso, sleep, stringifyError, shellQuote, truncateWithEllipsis, stripTerminalNoise, splitLines, isBacklogSeparatorLine, normalizeWaitStates, tailLines, run, runOrThrow, tmuxWindowExists, type CommandResult } from "./utils.js";
+import {
+	nowIso,
+	sleep,
+	stringifyError,
+	shellQuote,
+	truncateWithEllipsis,
+	stripTerminalNoise,
+	splitLines,
+	isBacklogSeparatorLine,
+	normalizeWaitStates,
+	tailLines,
+	run,
+	runOrThrow,
+	tmuxWindowExists,
+	type CommandResult,
+} from "./utils.js";
 
 describe("nowIso", () => {
 	test("returns ISO 8601 timestamp", () => {
@@ -161,7 +176,11 @@ describe("normalizeWaitStates", () => {
 	});
 
 	test("deduplicates values", () => {
-		const result = normalizeWaitStates(["waiting_user", "waiting_user", "failed"]);
+		const result = normalizeWaitStates([
+			"waiting_user",
+			"waiting_user",
+			"failed",
+		]);
 		expect(result.values).toEqual(["waiting_user", "failed"]);
 	});
 

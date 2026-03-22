@@ -100,7 +100,7 @@ describe("buildLaunchScript", () => {
 
 		// Should check for start script
 		expect(script).toContain("START_SCRIPT=");
-		expect(script).toContain("[[ -x \"$START_SCRIPT\" ]]");
+		expect(script).toContain('[[ -x "$START_SCRIPT" ]]');
 	});
 
 	test("handles special characters in parameters", () => {

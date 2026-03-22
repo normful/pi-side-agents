@@ -41,7 +41,9 @@ describe("sanitizeSlug", () => {
 
 describe("slugFromTask", () => {
 	test("extracts meaningful words", () => {
-		expect(slugFromTask("Fix authentication bug")).toBe("fix-authentication-bug");
+		expect(slugFromTask("Fix authentication bug")).toBe(
+			"fix-authentication-bug",
+		);
 	});
 
 	test("filters stop words", () => {

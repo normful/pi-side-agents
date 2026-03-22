@@ -206,7 +206,9 @@ describe("path helpers", () => {
 	});
 
 	test("getRegistryPath returns registry.json path", () => {
-		expect(getRegistryPath("/repo")).toBe("/repo/.pi/side-agents/registry.json");
+		expect(getRegistryPath("/repo")).toBe(
+			"/repo/.pi/side-agents/registry.json",
+		);
 	});
 
 	test("getRuntimeDir returns runtime directory path", () => {
@@ -291,7 +293,10 @@ describe("isChildRuntime", () => {
 });
 
 // Helper
-const testBaseDir = join(process.env.TMPDIR || "/tmp", "side-agents-registry-test");
+const testBaseDir = join(
+	process.env.TMPDIR || "/tmp",
+	"side-agents-registry-test",
+);
 let testCounter = 0;
 
 async function setupTestDir(): Promise<string> {

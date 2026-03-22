@@ -24,7 +24,10 @@ export async function readJsonFile<T>(path: string): Promise<T | undefined> {
 	}
 }
 
-export async function atomicWrite(path: string, content: string): Promise<void> {
+export async function atomicWrite(
+	path: string,
+	content: string,
+): Promise<void> {
 	await ensureDir(dirname(path));
 	const tmp = `${path}.tmp.${process.pid}.${Math.random().toString(16).slice(2)}`;
 	await fs.writeFile(tmp, content, "utf8");

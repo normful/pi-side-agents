@@ -1,4 +1,8 @@
-import type { ExtensionContext, SessionEntry, Message } from "@mariozechner/pi-coding-agent";
+import type {
+	ExtensionContext,
+	SessionEntry,
+	Message,
+} from "@mariozechner/pi-coding-agent";
 import { basename, dirname, join, resolve } from "node:path";
 import { promises as fs } from "node:fs";
 import { readJsonFile } from "./fs.js";
@@ -108,7 +112,9 @@ export function deduplicateSlug(slug: string, existing: Set<string>): string {
 	}
 }
 
-export async function listWorktreeSlots(repoRoot: string): Promise<WorktreeSlot[]> {
+export async function listWorktreeSlots(
+	repoRoot: string,
+): Promise<WorktreeSlot[]> {
 	const parent = dirname(repoRoot);
 	const prefix = `${basename(repoRoot)}-agent-worktree-`;
 	const re = new RegExp(

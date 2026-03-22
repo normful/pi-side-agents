@@ -1,8 +1,15 @@
 import { join } from "node:path";
 import { promises as fs } from "node:fs";
 import { basename } from "node:path";
-import type { ExtensionContext, SessionEntry, Message } from "@mariozechner/pi-coding-agent";
-import { convertToLlm, serializeConversation } from "@mariozechner/pi-coding-agent";
+import type {
+	ExtensionContext,
+	SessionEntry,
+	Message,
+} from "@mariozechner/pi-coding-agent";
+import {
+	convertToLlm,
+	serializeConversation,
+} from "@mariozechner/pi-coding-agent";
 import { complete } from "@mariozechner/pi-ai";
 import { ensureDir } from "./fs.js";
 import {
@@ -94,10 +101,18 @@ export async function appendKickoffPromptToBacklog(
 		`${PROMPT_LOG_PREFIX} ${loggedAt} ${record.id}: kickoff prompt end\n`;
 
 	try {
-		await ensureDir(basename(backlogPath) ? backlogPath.slice(0, backlogPath.lastIndexOf("/")) : backlogPath);
+		await ensureDir(
+			basename(backlogPath)
+				? backlogPath.slice(0, backlogPath.lastIndexOf("/"))
+				: backlogPath,
+		);
 		await fs.appendFile(backlogPath, payload, "utf8");
 		record.logPath = record.logPath ?? backlogPath;
-		record.runtimeDir = record.runtimeDir ?? (basename(backlogPath) ? backlogPath.slice(0, backlogPath.lastIndexOf("/")) : backlogPath);
+		record.runtimeDir =
+			record.runtimeDir ??
+			(basename(backlogPath)
+				? backlogPath.slice(0, backlogPath.lastIndexOf("/"))
+				: backlogPath);
 	} catch {
 		// Best effort only; prompt logging must not block agent startup.
 	}
@@ -200,7 +215,10 @@ function collectRecentBacklogLines(
 	return selected.reverse();
 }
 
-export function selectBacklogTailLines(text: string, minimumLines: number): string[] {
+export function selectBacklogTailLines(
+	text: string,
+	minimumLines: number,
+): string[] {
 	return collectRecentBacklogLines(splitLines(text), minimumLines);
 }
 

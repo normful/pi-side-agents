@@ -32,6 +32,8 @@
 		"node": ">=18"
 	},
 	"scripts": {
+		"format": "biome format --write --colors=off --max-diagnostics=0",
+		"lint": "biome lint --write --colors=off --max-diagnostics=0",
 		"test:unit": "node --test tests/unit/tool-contract.test.mjs",
 		"test:integration": "node --test --test-concurrency=1 tests/integration/side-agents.integration.test.mjs",
 		"test:extensions": "bun test extensions/**/*.test.ts"

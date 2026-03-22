@@ -135,11 +135,12 @@ export function statusColorRole(
 	}
 }
 
-
-
 // Command / tool argument parsing
 
-export function parseAgentCommandArgs(raw: string): { task: string; model?: string } {
+export function parseAgentCommandArgs(raw: string): {
+	task: string;
+	model?: string;
+} {
 	let rest = raw;
 	let model: string | undefined;
 
@@ -331,7 +332,8 @@ async function refreshOneAgentRuntime(
 		const exit = (await readJsonFile<ExitMarker>(record.exitFile)) ?? {};
 		if (typeof exit.exitCode === "number") {
 			record.exitCode = exit.exitCode;
-			record.finishedAt = exit.finishedAt ?? record.finishedAt ?? new Date().toISOString();
+			record.finishedAt =
+				exit.finishedAt ?? record.finishedAt ?? new Date().toISOString();
 			const changed = await setRecordStatus(
 				stateRoot,
 				record,
@@ -443,7 +445,12 @@ export async function startAgent(
 
 	const stateRoot = getStateRoot(ctx);
 	const repoRoot = (() => {
-		const result = run("git", ["-C", stateRoot, "rev-parse", "--show-toplevel"]);
+		const result = run("git", [
+			"-C",
+			stateRoot,
+			"rev-parse",
+			"--show-toplevel",
+		]);
 		if (result.ok) {
 			const root = result.stdout.trim();
 			if (root.length > 0) return root;
@@ -925,7 +932,10 @@ export function formatStatusWord(
 	return theme.fg(statusColorRole(status), status);
 }
 
-export function formatLabelPrefix(prefix: string, theme?: ThemeForeground): string {
+export function formatLabelPrefix(
+	prefix: string,
+	theme?: ThemeForeground,
+): string {
 	if (!theme) return prefix;
 	return theme.fg("muted", prefix);
 }
@@ -1061,7 +1071,10 @@ export async function renderStatusLine(
 	lastRenderedStatusLine = line;
 }
 
-export function ensureStatusPoller(pi: ExtensionAPI, ctx: ExtensionContext): void {
+export function ensureStatusPoller(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+): void {
 	statusPollContext = ctx;
 	statusPollApi = pi;
 	if (!ctx.hasUI) return;

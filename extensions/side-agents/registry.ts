@@ -1,6 +1,12 @@
 import { promises as fs } from "node:fs";
 import { join, dirname, resolve } from "node:path";
-import { readJsonFile, atomicWrite, ensureDir, withFileLock, fileExists } from "./fs.js";
+import {
+	readJsonFile,
+	atomicWrite,
+	ensureDir,
+	withFileLock,
+	fileExists,
+} from "./fs.js";
 import { nowIso, run, stringifyError } from "./utils.js";
 
 export const REGISTRY_VERSION = 1;
@@ -104,7 +110,10 @@ export function getRuntimeDir(stateRoot: string, agentId: string): string {
 	return join(getMetaDir(stateRoot), "runtime", agentId);
 }
 
-export function getRuntimeArchiveBaseDir(stateRoot: string, agentId: string): string {
+export function getRuntimeArchiveBaseDir(
+	stateRoot: string,
+	agentId: string,
+): string {
 	return join(getMetaDir(stateRoot), "runtime-archive", agentId);
 }
 

@@ -38,7 +38,9 @@ describe("normalizeGeneratedSummary", () => {
 	});
 
 	test("limits to MAX_LINES", () => {
-		const lines = Array.from({ length: 20 }, (_, i) => `Line ${i + 1}`).join("\n");
+		const lines = Array.from({ length: 20 }, (_, i) => `Line ${i + 1}`).join(
+			"\n",
+		);
 		const result = normalizeGeneratedSummary(lines);
 		const resultLines = result.split("\n");
 		expect(resultLines.length).toBeLessThanOrEqual(10);
@@ -57,7 +59,9 @@ describe("summarizeTask", () => {
 	});
 
 	test("strips ANSI codes", () => {
-		expect(summarizeTask("\x1b[32mgreen text\x1b[0m normal")).toBe("green text normal");
+		expect(summarizeTask("\x1b[32mgreen text\x1b[0m normal")).toBe(
+			"green text normal",
+		);
 	});
 
 	test("truncates to TASK_PREVIEW_MAX_CHARS", () => {
@@ -101,7 +105,10 @@ describe("sanitizeBacklogLines", () => {
 	});
 
 	test("limits total characters to BACKLOG_TOTAL_MAX_CHARS", () => {
-		const lines = Array.from({ length: 50 }, (_, i) => `Line ${i}: ${"x".repeat(100)}`);
+		const lines = Array.from(
+			{ length: 50 },
+			(_, i) => `Line ${i}: ${"x".repeat(100)}`,
+		);
 		const result = sanitizeBacklogLines(lines);
 		const totalLength = result.reduce((sum, line) => sum + line.length, 0);
 		expect(totalLength).toBeLessThanOrEqual(2400);
