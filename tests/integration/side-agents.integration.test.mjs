@@ -4,7 +4,6 @@ import { constants as fsConstants } from "node:fs";
 import {
 	access,
 	chmod,
-	copyFile,
 	mkdir,
 	mkdtemp,
 	readdir,
@@ -22,14 +21,11 @@ import { setTimeout as sleep } from "node:timers/promises";
 const PROJECT_ROOT = resolve(process.cwd());
 const EXTENSION_SOURCE = resolve(PROJECT_ROOT, "extensions/side-agents/index.ts");
 const MODEL_SPEC = "aihubmix-am/cc-minimax-m2.7-highspeed";
-const AUTH_SOURCE = join(homedir(), ".pi", "agent", "auth.json");
 const TEST_TIMEOUT = Number(process.env.PI_SIDE_IT_TIMEOUT_MS ?? 240_000);
 
-let authReady = false;
 let piShimCleanup = async () => {};
 
 before(async () => {
-	authReady = await hasOpenAiCodexAuth();
 	piShimCleanup = await ensureLoginShellPiCommand();
 });
 
@@ -118,17 +114,6 @@ function parseModelSpec(spec) {
 		provider: spec.slice(0, slashIndex),
 		modelId: spec.slice(slashIndex + 1),
 	};
-}
-
-async function hasOpenAiCodexAuth() {
-	if (!(await exists(AUTH_SOURCE))) return false;
-	try {
-		const raw = await readFile(AUTH_SOURCE, "utf8");
-		const auth = JSON.parse(raw);
-		return Boolean(auth?.["openai-codex"]);
-	} catch {
-		return false;
-	}
 }
 
 async function ensureLoginShellPiCommand() {
@@ -765,7 +750,6 @@ async function createHarness(t, options = {}) {
 		);
 	}
 
-	await copyFile(AUTH_SOURCE, join(agentDir, "auth.json"));
 	await writeFile(
 		join(agentDir, "settings.json"),
 		// biome-ignore lint/style/useTemplate: ignored using `--suppress`
@@ -842,14 +826,6 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 	return harness;
 }
 
-function assertAuthOrSkip(t) {
-	if (!authReady) {
-		t.skip("Requires ~/.pi/agent/auth.json with openai-codex credentials");
-		return false;
-	}
-	return true;
-}
-
 function spawnWithCapture(command, args, options = {}) {
 	return new Promise((resolvePromise, rejectPromise) => {
 		const child = spawn(command, args, {
@@ -889,7 +865,6 @@ function spawnWithCapture(command, args, options = {}) {
 test("integration: /agent launch + agent-check/agent-send tools + child press-any-key close", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-	if (!assertAuthOrSkip(t)) return;
 
 	const harness = await createHarness(t);
 
@@ -1047,7 +1022,6 @@ test("integration: /agent launch + agent-check/agent-send tools + child press-an
 test("integration: stale runtime dir is archived before reuse and does not auto-close the new agent", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-	if (!assertAuthOrSkip(t)) return;
 
 	const branchHint = "runtime-archive-regression";
 	const harness = await createHarness(t, { staleRuntimeDirForId: branchHint });
@@ -1150,7 +1124,6 @@ test("integration: stale runtime dir is archived before reuse and does not auto-
 test("integration: next agent id skips checked-out side-agent branch in a stale locked slot", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-	if (!assertAuthOrSkip(t)) return;
 
 	const harness = await createHarness(t, { lockedParallelAgentSlot: true });
 
@@ -1188,7 +1161,6 @@ test("integration: next agent id skips checked-out side-agent branch in a stale 
 test("integration: stale/orphan lock warning visibility and worktree slot reuse", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-	if (!assertAuthOrSkip(t)) return;
 
 	const harness = await createHarness(t, { staleLockSlot: true });
 
@@ -1272,7 +1244,6 @@ test("integration: stale/orphan lock warning visibility and worktree slot reuse"
 test("integration: concurrent multiple agents from one parent with distinct windows/worktrees", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-	if (!assertAuthOrSkip(t)) return;
 
 	const harness = await createHarness(t);
 
@@ -1583,7 +1554,6 @@ done
 test("integration: tool-contract — agent-check shapes: unknown id → ok:false, known agent → ok:true with all fields", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-	if (!assertAuthOrSkip(t)) return;
 
 	const harness = await createHarness(t);
 
@@ -1749,7 +1719,6 @@ test("integration: tool-contract — agent-check shapes: unknown id → ok:false
 test("integration: tool-call — agent-start execute returns { ok: true } with all required fields; agent-wait-any returns error for success-pruned id", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-	if (!assertAuthOrSkip(t)) return;
 
 	const harness = await createHarness(t);
 
@@ -1929,7 +1898,6 @@ test("integration: tool-call — agent-start execute returns { ok: true } with a
 test("integration: tool-call — agent-wait-any fails fast on unknown id: ok:false within 3 s of tool call", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-	if (!assertAuthOrSkip(t)) return;
 
 	const harness = await createHarness(t);
 
@@ -2015,7 +1983,6 @@ test("integration: tool-call — agent-wait-any fails fast on unknown id: ok:fal
 test("integration: agent-send !text — C-c interrupt + unique follow-up token both arrive in child backlog", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-	if (!assertAuthOrSkip(t)) return;
 
 	const harness = await createHarness(t);
 
