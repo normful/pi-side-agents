@@ -19,13 +19,13 @@ import {
 	summarizeTask,
 	collectStatusTransitions,
 	emitStatusTransitions,
-	summarizeOrphanLock,
 	isChildRuntime,
 } from "./agent.js";
 import { getStateRoot, isTerminalStatus, mutateRegistry } from "./registry.js";
 import { scanOrphanWorktreeLocks, reclaimOrphanWorktreeLocks } from "./worktree.js";
 import { stringifyError } from "./utils.js";
 import { run } from "./utils.js";
+import { summarizeOrphanLock } from "./slug.js";
 
 function resolveGitRoot(cwd: string): string {
 	const result = run("git", ["-C", cwd, "rev-parse", "--show-toplevel"]);

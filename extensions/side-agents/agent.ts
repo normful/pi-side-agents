@@ -135,14 +135,7 @@ export function statusColorRole(
 	}
 }
 
-export function summarizeOrphanLock(lock: { worktreePath: string; lockAgentId?: string; lockTmuxWindowId?: string; lockPid?: number }): string {
-	const details: string[] = [];
-	if (lock.lockAgentId) details.push(`agent:${lock.lockAgentId}`);
-	if (lock.lockTmuxWindowId) details.push(`tmux:${lock.lockTmuxWindowId}`);
-	if (lock.lockPid !== undefined) details.push(`pid:${lock.lockPid}`);
-	if (details.length === 0) return lock.worktreePath;
-	return `${lock.worktreePath} (${details.join(" ")})`;
-}
+
 
 // Command / tool argument parsing
 
