@@ -19,7 +19,10 @@ import test, { after, before } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const PROJECT_ROOT = resolve(process.cwd());
-const EXTENSION_SOURCE = resolve(PROJECT_ROOT, "extensions/side-agents/index.ts");
+const EXTENSION_SOURCE = resolve(
+	PROJECT_ROOT,
+	"extensions/side-agents/index.ts",
+);
 const MODEL_SPEC = "aihubmix-am/cc-minimax-m2.7-highspeed";
 const TEST_TIMEOUT = Number(process.env.PI_SIDE_IT_TIMEOUT_MS ?? 240_000);
 
@@ -99,7 +102,9 @@ async function waitFor(description, fn, options = {}) {
 			const value = await fn();
 			if (value) {
 				if (attempt > 1) {
-					console.error(`[DEBUG] waitFor "${description}" resolved on attempt ${attempt} after ${Date.now() - startedAt}ms`);
+					console.error(
+						`[DEBUG] waitFor "${description}" resolved on attempt ${attempt} after ${Date.now() - startedAt}ms`,
+					);
 				}
 				return value;
 			}
@@ -107,7 +112,9 @@ async function waitFor(description, fn, options = {}) {
 			lastError = error;
 		}
 		if (attempt % 20 === 0) {
-			console.error(`[DEBUG] waitFor "${description}" still waiting... ${Date.now() - startedAt}ms elapsed`);
+			console.error(
+				`[DEBUG] waitFor "${description}" still waiting... ${Date.now() - startedAt}ms elapsed`,
+			);
 		}
 		await sleep(intervalMs);
 	}
@@ -166,7 +173,9 @@ async function capturePane(harness, target, lines = 400) {
 	if (output.length === 0) {
 		console.error(`[DEBUG] capturePane(${target}): empty pane`);
 	} else {
-		console.error(`[DEBUG] capturePane(${target}): ${output.length} chars, last line: ${output.split('\n').slice(-2).join(' | ')}`);
+		console.error(
+			`[DEBUG] capturePane(${target}): ${output.length} chars, last line: ${output.split("\n").slice(-2).join(" | ")}`,
+		);
 	}
 	return output;
 }
@@ -674,11 +683,15 @@ async function createHarness(t, options = {}) {
 	const sessionName = `it-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
 	const { provider, modelId } = parseModelSpec(MODEL_SPEC);
-	console.error(`[DEBUG] createHarness: provider=${provider}, modelId=${modelId}`);
+	console.error(
+		`[DEBUG] createHarness: provider=${provider}, modelId=${modelId}`,
+	);
 
 	await mkdir(repoRoot, { recursive: true });
 	await mkdir(parentSessionDir, { recursive: true });
-	console.error(`[DEBUG] createHarness: created dirs, parentSessionDir=${parentSessionDir}`);
+	console.error(
+		`[DEBUG] createHarness: created dirs, parentSessionDir=${parentSessionDir}`,
+	);
 
 	run("git", ["init", "-b", "main"], { cwd: repoRoot });
 	run("git", ["config", "user.email", "integration@example.com"], {
@@ -793,11 +806,11 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 
 	console.error(`[DEBUG] createHarness: launchScript=${launchScript}`);
 	console.error(`[DEBUG] createHarness: PI_SIDE_AGENTS_ROOT=${repoRoot}`);
-	
+
 	// Verify pi is in PATH and show env vars
 	const whichPi = run("which", ["pi"]);
 	console.error(`[DEBUG] createHarness: which pi = ${whichPi.stdout.trim()}`);
-	
+
 	console.error("[DEBUG] createHarness: starting tmux session...");
 
 	const tmuxResult = tmux(
@@ -815,21 +828,45 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 		],
 		{ env },
 	);
-	console.error(`[DEBUG] createHarness: tmux new-session exit code: ${tmuxResult.status}, stdout: ${tmuxResult.stdout.trim()}, stderr: ${tmuxResult.stderr.trim()}`);
-	
+	console.error(
+		`[DEBUG] createHarness: tmux new-session exit code: ${tmuxResult.status}, stdout: ${tmuxResult.stdout.trim()}, stderr: ${tmuxResult.stderr.trim()}`,
+	);
+
 	// Verify tmux server is running
-	const serverCheck = tmux({ tmuxSocket }, ["list-sessions"], { allowFailure: true });
-	console.error(`[DEBUG] createHarness: list-sessions: ${serverCheck.status}, stdout: ${serverCheck.stdout.trim()}, stderr: ${serverCheck.stderr.trim()}`);
-	
+	const serverCheck = tmux({ tmuxSocket }, ["list-sessions"], {
+		allowFailure: true,
+	});
+	console.error(
+		`[DEBUG] createHarness: list-sessions: ${serverCheck.status}, stdout: ${serverCheck.stdout.trim()}, stderr: ${serverCheck.stderr.trim()}`,
+	);
+
 	// Give it a moment and check if pi is running
 	await sleep(2000);
-	const listResult = tmux({ tmuxSocket }, ["list-panes", "-t", sessionName, "-F", "#{pane_pid} #{pane_start_command}"], { allowFailure: true });
-	console.error(`[DEBUG] createHarness: pane info: ${listResult.stdout.trim() || listResult.stderr.trim()}`);
-	
+	const listResult = tmux(
+		{ tmuxSocket },
+		[
+			"list-panes",
+			"-t",
+			sessionName,
+			"-F",
+			"#{pane_pid} #{pane_start_command}",
+		],
+		{ allowFailure: true },
+	);
+	console.error(
+		`[DEBUG] createHarness: pane info: ${listResult.stdout.trim() || listResult.stderr.trim()}`,
+	);
+
 	// Also check what's in the pane right now
-	const paneContent = tmux({ tmuxSocket }, ["capture-pane", "-p", "-t", `${sessionName}:0`], { allowFailure: true });
-	console.error(`[DEBUG] createHarness: initial pane capture: ${paneContent.stdout.trim() || paneContent.stderr.trim()}`);
-	
+	const paneContent = tmux(
+		{ tmuxSocket },
+		["capture-pane", "-p", "-t", `${sessionName}:0`],
+		{ allowFailure: true },
+	);
+	console.error(
+		`[DEBUG] createHarness: initial pane capture: ${paneContent.stdout.trim() || paneContent.stderr.trim()}`,
+	);
+
 	const harness = {
 		rootDir,
 		repoRoot,
@@ -852,7 +889,9 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 			const hasCommands = pane.includes("/ for commands");
 			const hasExtension = pane.includes("side-agents.ts");
 			if (!hasCommands || !hasExtension) {
-				console.error(`[DEBUG] waitFor parent pi: pane len=${pane.length}, preview: ${JSON.stringify(pane.slice(-300))}`);
+				console.error(
+					`[DEBUG] waitFor parent pi: pane len=${pane.length}, preview: ${JSON.stringify(pane.slice(-300))}`,
+				);
 			}
 			return hasCommands && hasExtension;
 		},
@@ -902,7 +941,9 @@ function spawnWithCapture(command, args, options = {}) {
 test("integration: /agent launch + agent-check/agent-send tools + child press-any-key close", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-	console.error("[DEBUG] TEST STARTED: /agent launch + agent-check/agent-send tools + child press-any-key close");
+	console.error(
+		"[DEBUG] TEST STARTED: /agent launch + agent-check/agent-send tools + child press-any-key close",
+	);
 
 	const harness = await createHarness(t);
 
@@ -1060,7 +1101,6 @@ test("integration: /agent launch + agent-check/agent-send tools + child press-an
 test("integration: stale runtime dir is archived before reuse and does not auto-close the new agent", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-
 	const branchHint = "runtime-archive-regression";
 	const harness = await createHarness(t, { staleRuntimeDirForId: branchHint });
 	const runtimeDir = join(
@@ -1162,7 +1202,6 @@ test("integration: stale runtime dir is archived before reuse and does not auto-
 test("integration: next agent id skips checked-out side-agent branch in a stale locked slot", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-
 	const harness = await createHarness(t, { lockedParallelAgentSlot: true });
 
 	const started = await startAgentViaSlashCommand(
@@ -1199,7 +1238,6 @@ test("integration: next agent id skips checked-out side-agent branch in a stale 
 test("integration: stale/orphan lock warning visibility and worktree slot reuse", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-
 	const harness = await createHarness(t, { staleLockSlot: true });
 
 	const first = await startAgentViaSlashCommand(harness, "stale lock test");
@@ -1282,7 +1320,6 @@ test("integration: stale/orphan lock warning visibility and worktree slot reuse"
 test("integration: concurrent multiple agents from one parent with distinct windows/worktrees", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-
 	const harness = await createHarness(t);
 
 	const first = await startAgentViaSlashCommand(harness, "concurrent one");
@@ -1592,7 +1629,6 @@ done
 test("integration: tool-contract — agent-check shapes: unknown id → ok:false, known agent → ok:true with all fields", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-
 	const harness = await createHarness(t);
 
 	// — Unknown id -------------------------------------------------------
@@ -1757,7 +1793,6 @@ test("integration: tool-contract — agent-check shapes: unknown id → ok:false
 test("integration: tool-call — agent-start execute returns { ok: true } with all required fields; agent-wait-any returns error for success-pruned id", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-
 	const harness = await createHarness(t);
 
 	// Frame the request as a natural user need rather than a raw tool-call
@@ -1936,7 +1971,6 @@ test("integration: tool-call — agent-start execute returns { ok: true } with a
 test("integration: tool-call — agent-wait-any fails fast on unknown id: ok:false within 3 s of tool call", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-
 	const harness = await createHarness(t);
 
 	// Wall-clock anchor: capture time before the prompt is sent to Pi.
@@ -2021,7 +2055,6 @@ test("integration: tool-call — agent-wait-any fails fast on unknown id: ok:fal
 test("integration: agent-send !text — C-c interrupt + unique follow-up token both arrive in child backlog", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
-
 	const harness = await createHarness(t);
 
 	const started = await startAgentViaSlashCommand(

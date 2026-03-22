@@ -82,18 +82,18 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 						{
 							type: "text",
 							text: json({
-							ok: true,
-							id: started.id,
-							task:
-								params.description.length > 200
-									? `${params.description.slice(0, 200)}...`
-									: params.description,
-							tmuxWindowId: started.tmuxWindowId,
-							tmuxWindowIndex: started.tmuxWindowIndex,
-							worktreePath: started.worktreePath,
-							branch: started.branch,
-							warnings: started.warnings,
-						}),
+								ok: true,
+								id: started.id,
+								task:
+									params.description.length > 200
+										? `${params.description.slice(0, 200)}...`
+										: params.description,
+								tmuxWindowId: started.tmuxWindowId,
+								tmuxWindowIndex: started.tmuxWindowIndex,
+								worktreePath: started.worktreePath,
+								branch: started.branch,
+								warnings: started.warnings,
+							}),
 						},
 					],
 					details: undefined,
@@ -422,13 +422,11 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 			"Register side-agent tools (agent-start, agent-check, agent-wait-any, agent-send)",
 		handler: async (_args, ctx) => {
 			if (registeredSideAgentTools.has("agent-start")) {
-				ctx.hasUI &&
-					ctx.ui.notify("Side-agent tools already loaded.", "info");
+				ctx.hasUI && ctx.ui.notify("Side-agent tools already loaded.", "info");
 				return;
 			}
 			registerSideAgentTools(pi);
-			ctx.hasUI &&
-				ctx.ui.notify("Side-agent tools registered.", "info");
+			ctx.hasUI && ctx.ui.notify("Side-agent tools registered.", "info");
 		},
 	});
 

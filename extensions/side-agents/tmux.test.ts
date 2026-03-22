@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
-	PI_SIDE_AGENT_ID,
-	PI_SIDE_PARENT_SESSION,
-	PI_SIDE_PARENT_REPO,
-	PI_SIDE_AGENTS_ROOT,
-	PI_SIDE_RUNTIME_DIR,
 	buildLaunchScript,
+	PI_SIDE_AGENT_ID,
+	PI_SIDE_AGENTS_ROOT,
+	PI_SIDE_PARENT_REPO,
+	PI_SIDE_PARENT_SESSION,
+	PI_SIDE_RUNTIME_DIR,
 } from "./tmux.js";
 
 describe("buildLaunchScript", () => {
@@ -57,7 +57,9 @@ describe("buildLaunchScript", () => {
 			runtimeDir: "/repo/.pi/runtime/test-agent",
 		});
 
-		expect(script).toContain(`export ${PI_SIDE_PARENT_SESSION}="$PARENT_SESSION"`);
+		expect(script).toContain(
+			`export ${PI_SIDE_PARENT_SESSION}="$PARENT_SESSION"`,
+		);
 		expect(script).toContain("PARENT_SESSION='main-session-456'");
 	});
 
@@ -68,7 +70,8 @@ describe("buildLaunchScript", () => {
 			stateRoot: "/Users/norman/code/myproject",
 			worktreePath: "/Users/norman/code/myproject/.worktrees/agent-test-agent",
 			tmuxWindowId: "@1",
-			promptPath: "/Users/norman/code/myproject/.pi/runtime/test-agent/kickoff.md",
+			promptPath:
+				"/Users/norman/code/myproject/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/Users/norman/code/myproject/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/Users/norman/code/myproject/.pi/runtime/test-agent",
 		});
@@ -124,7 +127,9 @@ describe("buildLaunchScript", () => {
 
 		// Verify each environment variable is exported with its correct name
 		expect(script).toContain(`export ${PI_SIDE_AGENT_ID}="$AGENT_ID"`);
-		expect(script).toContain(`export ${PI_SIDE_PARENT_SESSION}="$PARENT_SESSION"`);
+		expect(script).toContain(
+			`export ${PI_SIDE_PARENT_SESSION}="$PARENT_SESSION"`,
+		);
 		expect(script).toContain(`export ${PI_SIDE_PARENT_REPO}="$PARENT_REPO"`);
 		expect(script).toContain(`export ${PI_SIDE_AGENTS_ROOT}="$STATE_ROOT"`);
 		expect(script).toContain(`export ${PI_SIDE_RUNTIME_DIR}="$RUNTIME_DIR"`);
@@ -145,7 +150,9 @@ describe("buildLaunchScript", () => {
 
 		// When parentSessionId is undefined, it should be empty string
 		expect(script).toContain("PARENT_SESSION=''");
-		expect(script).toContain(`export ${PI_SIDE_PARENT_SESSION}="$PARENT_SESSION"`);
+		expect(script).toContain(
+			`export ${PI_SIDE_PARENT_SESSION}="$PARENT_SESSION"`,
+		);
 	});
 
 	test("handles missing modelSpec (model flag not added)", () => {
@@ -311,7 +318,7 @@ describe("buildLaunchScript", () => {
 		expect(script).toContain("#!/usr/bin/env bash");
 		expect(script).toContain("set -euo pipefail");
 		expect(script).toContain("export PI_SIDE_");
-		expect(script).toContain("cd \"$WORKTREE\"");
+		expect(script).toContain('cd "$WORKTREE"');
 		expect(script).toContain('"${PI_CMD[@]}"');
 		expect(script).toContain("tmux kill-window");
 	});
