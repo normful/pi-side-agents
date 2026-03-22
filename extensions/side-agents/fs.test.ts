@@ -141,7 +141,7 @@ describe("withFileLock", () => {
 });
 
 // Helper to create and return a unique test directory
-const testBaseDir = join(process.env.TMPDIR || "/tmp", "side-agents-test");
+const testBaseDir = join(process.env["TMPDIR"] || "/tmp", "side-agents-test");
 let testCounter = 0;
 
 async function setupTestDir(suite: string): Promise<string> {
