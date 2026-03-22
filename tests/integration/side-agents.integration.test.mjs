@@ -792,9 +792,13 @@ async function createHarness(t, options = {}) {
 		launchScript,
 		`#!/usr/bin/env bash
 set -euo pipefail
-echo "[DEBUG-LAUNCH] starting pi with model=${MODEL_SPEC}" >&2
+echo "[DEBUG-LAUNCH] PID=$$ starting" >&2
+echo "[DEBUG-LAUNCH] PATH=$PATH" >&2
+echo "[DEBUG-LAUNCH] model=${MODEL_SPEC}" >&2
 cd ${JSON.stringify(repoRoot)}
-exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir ${JSON.stringify(parentSessionDir)} --no-skills --no-prompt-templates --no-themes
+echo "[DEBUG-LAUNCH] cwd=$(pwd)" >&2
+echo "[DEBUG-LAUNCH] about to exec pi..." >&2
+exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir ${JSON.stringify(parentSessionDir)} --no-skills --no-prompt-templates --no-themes 2>&1
 `,
 	);
 	await chmod(launchScript, 0o755);
@@ -805,6 +809,7 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 		PI_SIDE_AGENTS_ROOT: repoRoot,
 		PI_OFFLINE: "1",
 	};
+	console.error(`[DEBUG] createHarness: env.PI_CODING_AGENT_DIR=${env.PI_CODING_AGENT_DIR}`);
 
 	console.error(`[DEBUG] createHarness: launchScript=${launchScript}`);
 	console.error(`[DEBUG] createHarness: PI_CODING_AGENT_DIR=${agentDir}`);
@@ -814,11 +819,11 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 	const whichPi = run("which", ["pi"]);
 	console.error(`[DEBUG] createHarness: which pi = ${whichPi.stdout.trim()}`);
 	console.error(`[DEBUG] createHarness: PATH = ${process.env.PATH}`);
-	console.error(`[DEBUG] createHarness: PI_CODING_AGENT_DIR env = ${process.env.PI_CODING_AGENT_DIR}`);
+	console.error(`[DEBUG] createHarness: agentDir=${agentDir}`);
 	
 	console.error("[DEBUG] createHarness: starting tmux session...");
 
-	tmux(
+	const tmuxResult = tmux(
 		{ tmuxSocket },
 		[
 			"new-session",
@@ -833,12 +838,20 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 		],
 		{ env },
 	);
-	console.error(`[DEBUG] createHarness: tmux session created: ${sessionName}`);
+	console.error(`[DEBUG] createHarness: tmux new-session exit code: ${tmuxResult.status}, stdout: ${tmuxResult.stdout.trim()}, stderr: ${tmuxResult.stderr.trim()}`);
+	
+	// Verify tmux server is running
+	const serverCheck = tmux({ tmuxSocket }, ["list-sessions"], { allowFailure: true });
+	console.error(`[DEBUG] createHarness: list-sessions: ${serverCheck.status}, stdout: ${serverCheck.stdout.trim()}, stderr: ${serverCheck.stderr.trim()}`);
 	
 	// Give it a moment and check if pi is running
 	await sleep(2000);
 	const listResult = tmux({ tmuxSocket }, ["list-panes", "-t", sessionName, "-F", "#{pane_pid} #{pane_start_command}"], { allowFailure: true });
 	console.error(`[DEBUG] createHarness: pane info: ${listResult.stdout.trim() || listResult.stderr.trim()}`);
+	
+	// Also check what's in the pane right now
+	const paneContent = tmux({ tmuxSocket }, ["capture-pane", "-p", "-t", `${sessionName}:0`], { allowFailure: true });
+	console.error(`[DEBUG] createHarness: initial pane capture: ${paneContent.stdout.trim() || paneContent.stderr.trim()}`);
 	
 	const harness = {
 		rootDir,
