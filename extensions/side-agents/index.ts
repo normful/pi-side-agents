@@ -226,11 +226,11 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-start",
 		label: "Agent Start",
 		description:
-			"Start a background side agent in tmux/worktree. Lifecycle: child implements the change or asks for clarification -> wait-state and yield -> parent inspects (agent-check or agent-wait-any), reviews work, reacts -> eventually, parent asks child to wrap up (send 'LGTM, merge'), sends /quit when child is done. Provide a short kebab-case branchHint (max 3 words) for the agent's branch name. Returns { ok: true, id, task, tmuxWindowId, tmuxWindowIndex, worktreePath, branch, warnings[] } on success, or { ok: false, error } on failure.",
+			"Start a background side agent in a tmux window with its own git worktree. Use for tasks that may take time or involve multiple steps. The agent works autonomously and yields (waiting_user) when it needs input or has completed its task. Returns agent metadata including id, tmuxWindowId, worktreePath, and branch. The agent's work is committed to a dedicated branch in its worktree — merge manually or cherry-pick when done.",
 		parameters: Type.Object({
 			description: Type.String({
 				description:
-					"Task description for child agent kickoff prompt (include all necessary context)",
+					"Prompt with task description for child agent. Include all necessary context, constraints, and expected outcome. Can reference files using @ syntax",
 			}),
 			branchHint: Type.String({
 				description:
@@ -301,9 +301,9 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-check",
 		label: "Agent Check",
 		description:
-			"Check a given side agent status and return compact recent output. Returns { ok: true, agent: { id, status, tmuxWindowId, tmuxWindowIndex, worktreePath, branch, task, startedAt, finishedAt?, exitCode?, error?, warnings[] }, backlog: string[] }, or { ok: false, error } if the agent id is unknown or a registry error occurs. backlog is sanitized/truncated for LLM safety; task is a compact preview. Statuses: allocating_worktree | spawning_tmux | running | waiting_user | failed | crashed. Agents that exit with code 0 are auto-removed from registry.",
+			"Check a side agent's current status and retrieve recent output",
 		parameters: Type.Object({
-			id: Type.String({ description: "Agent id" }),
+			id: Type.String({ description: "Agent id returned by agent-start" }),
 		}),
 		async execute(
 			_toolCallId,
@@ -340,7 +340,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-wait-any",
 		label: "Agent Wait Any",
 		description:
-			"Wait for an agent to finish its work. Returns the agent's status payload (same shape as agent-check) once it completes (done), yields (waiting_user), fails, or crashes.",
+			"Block and wait for one or more side agents to reach a terminal or yielding state. Returns the agent's full status payload once any watched agent completes (done), fails, crashes, or yields (waiting_user). Use after agent-start or agent-send to let the agent do work. Returns error if agent ids are unknown or already removed from registry.",
 		parameters: Type.Object({
 			ids: Type.Array(Type.String({ description: "Agent id" }), {
 				description: "Agent ids to wait for",
@@ -381,12 +381,12 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-send",
 		label: "Agent Send",
 		description:
-			"Send a steering/follow-up prompt to a child agent's tmux pane. Returns { ok: boolean, message: string }.",
+			"Send a text prompt to a side agent's tmux pane to steer. For immediate interruption or forced commands, prefix prompt with: '!' to interrupt first, '/' for slash commands (e.g. '/quit' to terminate). IMPORTANT: Always append newline character ('\\\\n') to end of prompt",
 		parameters: Type.Object({
-			id: Type.String({ description: "Agent id" }),
+			id: Type.String({ description: "Agent id returned by agent-start" }),
 			prompt: Type.String({
 				description:
-					"Prompt text to send (prefix with '!' to interrupt first instead of organic steering, '/' for slash commands like /quit)",
+					"Prompt text to send",
 			}),
 		}),
 		async execute(
