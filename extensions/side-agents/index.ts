@@ -1305,14 +1305,14 @@ PROMPT_FILE=${shellQuote(params.promptPath)}
 EXIT_FILE=${shellQuote(params.exitFile)}
 MODEL_SPEC=${shellQuote(params.modelSpec ?? "")}
 RUNTIME_DIR=${shellQuote(params.runtimeDir)}
-START_SCRIPT=\"$WORKTREE/.pi/side-agent-start.sh\"
-CHILD_SKILLS_DIR=\"$WORKTREE/.pi/side-agent-skills\"
+START_SCRIPT="$WORKTREE/.pi/side-agent-start.sh"
+CHILD_SKILLS_DIR="$WORKTREE/.pi/side-agent-skills"
 
-export ${ENV_AGENT_ID}=\"$AGENT_ID\"
-export ${ENV_PARENT_SESSION}=\"$PARENT_SESSION\"
-export ${ENV_PARENT_REPO}=\"$PARENT_REPO\"
-export ${ENV_STATE_ROOT}=\"$STATE_ROOT\"
-export ${ENV_RUNTIME_DIR}=\"$RUNTIME_DIR\"
+export ${ENV_AGENT_ID}="$AGENT_ID"
+export ${ENV_PARENT_SESSION}="$PARENT_SESSION"
+export ${ENV_PARENT_REPO}="$PARENT_REPO"
+export ${ENV_STATE_ROOT}="$STATE_ROOT"
+export ${ENV_RUNTIME_DIR}="$RUNTIME_DIR"
 
 write_exit() {
   local code="$1"

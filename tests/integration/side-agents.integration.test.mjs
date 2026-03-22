@@ -1406,7 +1406,7 @@ MERGE_LOCK_TIMEOUT=120
 
 acquire_lock() {
   local payload started elapsed
-  payload="{\"agentId\":\"$AGENT_ID\",\"pid\":$$,\"acquiredAt\":\"$(date -Is)\"}"
+  payload="{"agentId":"$AGENT_ID","pid":$$,"acquiredAt":"$(date -Is)"}"
   started=$(date +%s)
   while true; do
     if ( set -o noclobber; printf '%s\\n' "$payload" > "$LOCK_FILE" ) 2>/dev/null; then
