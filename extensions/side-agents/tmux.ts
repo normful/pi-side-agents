@@ -177,7 +177,7 @@ if [[ -d "$CHILD_SKILLS_DIR" ]]; then
 fi
 
 set +e
-"\${PI_CMD[@]}" "$(cat "$PROMPT_FILE")"
+"\${PI_CMD[@]}" "@$PROMPT_FILE"
 exit_code=$?
 set -e
 
