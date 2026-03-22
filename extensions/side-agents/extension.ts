@@ -15,6 +15,7 @@ import {
 	ensureChildSessionLinked,
 	parseAgentCommandArgs,
 	summarizeTask,
+	setStatusPollContext,
 } from "./agent.js";
 import { getStateRoot, mutateRegistry } from "./registry.js";
 import {
@@ -416,8 +417,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 	});
 
 	pi.on("before_agent_start", async (_event, ctx) => {
-		statusPollContext = ctx;
-		statusPollApi = pi;
+		setStatusPollContext(pi, ctx);
 		await renderStatusLine(pi, ctx, { emitTransitions: false }).catch(() => {});
 	});
 }

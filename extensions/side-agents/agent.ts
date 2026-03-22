@@ -1103,6 +1103,15 @@ export function ensureStatusPoller(
 	void renderStatusLine(pi, ctx).catch(() => {});
 }
 
+/**
+ * Set the status poll context and API for use by the status poller.
+ * Used by extension.ts to initialize polling state before ensureStatusPoller runs.
+ */
+export function setStatusPollContext(pi: ExtensionAPI, ctx: ExtensionContext): void {
+	statusPollContext = ctx;
+	statusPollApi = pi;
+}
+
 // Helper function for agent-check tool
 export async function agentCheckPayload(
 	stateRoot: string,
