@@ -39,7 +39,7 @@ patterns, and numeric limits.
 ### `utils.ts`
 
 Pure utility functions. **No internal project imports** (only Node built-ins).
-Receives `normalizeWaitStates` (imports status arrays from `constants.ts`).
+Imports `ALL_AGENT_STATUSES`, `DEFAULT_WAIT_STATES` from `constants.ts`.
 
 - `nowIso()`
 - `sleep(ms)`
@@ -48,13 +48,15 @@ Receives `normalizeWaitStates` (imports status arrays from `constants.ts`).
 - `truncateWithEllipsis(text, maxChars)`
 - `stripTerminalNoise(text)`
 - `splitLines(text)`
-- `normalizeWaitStates(input?)` — imports `ALL_AGENT_STATUSES`, `DEFAULT_WAIT_STATES` from `constants.ts`
+- `isBacklogSeparatorLine(line)`
+- `normalizeWaitStates(input?)` → `{ values: AgentStatus[], error?: string }`
 - `tailLines(text, count)`
 - `run(command, args, options?)` → `CommandResult`
 - `runOrThrow(command, args, options?)` → `CommandResult`
-- `tmuxWindowExists(windowId)` — moved here to avoid circular deps
+- `tmuxWindowExists(windowId)` — lives here to avoid circular deps
 
-`CommandResult` type defined here (used by `tmux.ts`, `worktree.ts`, `slug.ts`).
+`CommandResult` type defined here (imported by `tmux.ts`, `worktree.ts`, `slug.ts`,
+`registry.ts`).
 
 ---
 
@@ -72,8 +74,9 @@ Filesystem helpers. Imports `utils.ts`.
 
 ### `slug.ts`
 
-Slug generation + worktree slot/orphan lock types. Imports `utils.ts`, `registry.ts`
-(for `ExtensionContext`, `RegistryFile` types, `runOrThrow`).
+Slug generation + worktree slot/orphan lock types. Imports `utils.ts` (for
+`CommandResult`, `run`, `runOrThrow`) and `registry.ts` (for `ExtensionContext`,
+`RegistryFile` types).
 
 Types: `WorktreeSlot`, `OrphanWorktreeLock`, `OrphanWorktreeLockScan`.
 
@@ -111,10 +114,9 @@ Prompt building and backlog sanitization. Imports `utils.ts` and `registry.ts`
 
 - `normalizeGeneratedSummary(raw)`
 - `summarizeTask(task)`
-- `buildKickoffPrompt(ctx, task, includeSummary)` → `{ prompt, warning? }`
-- `appendKickoffPromptToBacklog(stateRoot, record, prompt, loggedAt?)`
 - `resolveBacklogPathForRecord(stateRoot, record)`
-- `isBacklogSeparatorLine(line)`
+- `appendKickoffPromptToBacklog(stateRoot, record, prompt, loggedAt?)`
+- `buildKickoffPrompt(ctx, task, includeSummary)` → `{ prompt, warning? }`
 - `collectRecentBacklogLines(lines, minimumLines)`
 - `selectBacklogTailLines(text, minimumLines)`
 - `sanitizeBacklogLines(lines)`
@@ -135,16 +137,20 @@ Tmux operations. Imports `utils.ts`.
 - `tmuxCaptureVisible(windowId)` → `string[]`
 - `buildLaunchScript(params)` → `string`
 
+> **Dead code deleted:** `tmuxCaptureTail` was defined in `index.ts` but never
+> called. It is not included in any module.
+
 ---
 
 ### `registry.ts`
 
 Agent types, registry file helpers, status helpers, and path utilities. Imports
-`fs.ts`. **`getStateRoot` lives here.**
+`fs.ts`. **`getStateRoot` lives here.** Imports `CommandResult` from `utils.ts`
+for internal use.
 
 Types: `AgentStatus`, `AgentRecord`, `RegistryFile`, `StartAgentParams`,
 `StartAgentResult`, `AllocateWorktreeResult`, `PrepareRuntimeDirResult`,
-`ExitMarker`, `RefreshRuntimeResult`, `CommandResult` (re-exported for convenience).
+`ExitMarker`. (Re-exported from `utils.ts`: `CommandResult`.)
 
 - `emptyRegistry()` → `RegistryFile`
 - `loadRegistry(stateRoot)` → `RegistryFile`
@@ -170,23 +176,38 @@ Agent lifecycle, status helpers, and rendering. Imports `registry.ts`, `tmux.ts`
 
 Types: `AgentStatusSnapshot`, `StatusTransitionNotice`, `RefreshRuntimeResult`.
 
+**Display/type helpers:**
+
+- `summarizeOrphanLock(lock)` → `string`
 - `statusShort(status)` → `string`
 - `statusColorRole(status)` → `"warning" | "muted" | "accent" | "error"`
+
+**Command / tool argument parsing:**
+
 - `normalizeAgentId(raw)` → `string`
 - `parseAgentCommandArgs(raw)` → `{ task, model? }`
 - `splitModelPatternAndThinking(raw)` → `{ pattern, thinking? }`
 - `withThinking(modelSpec, thinking?)` → `string`
 - `resolveModelSpecForChild(ctx, requested?)` → `{ modelSpec?, warning? }`
+
+**Runtime refresh:**
+
 - `refreshOneAgentRuntime(stateRoot, record)` → `RefreshRuntimeResult`
 - `refreshAgent(stateRoot, agentId)` → `AgentRecord | undefined`
 - `refreshAllAgents(stateRoot)` → `RegistryFile`
 - `getBacklogTail(record, lines?)` → `string[]`
+
+**Agent lifecycle:**
+
 - `startAgent(pi, ctx, params)` → `StartAgentResult`
 - `sendToAgent(stateRoot, agentId, prompt)` → `{ ok, message }`
 - `waitForAny(stateRoot, ids, signal?, waitStatesInput?)` → `Record`
 - `setChildRuntimeStatus(ctx, nextStatus)`
 - `ensureChildSessionLinked(pi, ctx)`
 - `isChildRuntime()` → `boolean`
+
+**Child-session rendering:**
+
 - `renderInfoMessage(pi, ctx, title, lines)`
 - `collectStatusTransitions(stateRoot, agents)` → `StatusTransitionNotice[]`
 - `formatStatusWord(status, theme?)` → `string`
@@ -196,6 +217,20 @@ Types: `AgentStatusSnapshot`, `StatusTransitionNotice`, `RefreshRuntimeResult`.
 - `emitKickoffPromptMessage(pi, started)`
 - `renderStatusLine(pi, ctx, options?)`
 - `ensureStatusPoller(pi, ctx)`
+
+**Theme foreground type** (used by `formatStatusWord`, `formatLabelPrefix`,
+`formatStatusTransitionMessage`):
+
+```ts
+type ThemeForeground = {
+  fg: (role: "warning" | "muted" | "accent" | "error", text: string) => string;
+};
+```
+
+**Behavioral invariants:**
+
+- The `agent-start` tool handler truncates `params.description` to 200 chars
+  with ellipsis. The returned `task` field therefore obeys this bound.
 
 Module-level mutable state (`statusPollTimer`, `statusPollContext`,
 `statusPollApi`, `statusPollInFlight`, `statusSnapshotsByStateRoot`,
@@ -228,7 +263,7 @@ export default sideAgentsExtension;
 ### Integration tests (`tests/integration/side-agents.integration.test.mjs`)
 
 The integration tests import the extension source via a shim file written by
-`createHarness`:
+`createHarness` to `repo/.pi/extensions/side-agents.ts`:
 
 ```ts
 // repo/.pi/extensions/side-agents.ts  (written by createHarness)
