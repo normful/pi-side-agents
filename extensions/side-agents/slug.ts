@@ -1,7 +1,7 @@
-import { basename, dirname, join } from "node:path";
 import { promises as fs } from "node:fs";
-import { run } from "./utils.js";
+import { basename, dirname, join } from "node:path";
 import type { RegistryFile } from "./registry.js";
+import { run } from "./utils.js";
 
 export type WorktreeSlot = {
 	index: number;

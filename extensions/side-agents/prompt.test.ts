@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+	collectRecentBacklogLines,
 	normalizeGeneratedSummary,
-	summarizeTask,
 	sanitizeBacklogLines,
 	selectBacklogTailLines,
-	collectRecentBacklogLines,
+	summarizeTask,
 } from "./prompt.js";
 
 describe("normalizeGeneratedSummary", () => {

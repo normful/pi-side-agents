@@ -1,18 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import {
-	nowIso,
-	sleep,
-	stringifyError,
-	shellQuote,
-	truncateWithEllipsis,
-	stripTerminalNoise,
-	splitLines,
 	isBacklogSeparatorLine,
 	normalizeWaitStates,
-	tailLines,
+	nowIso,
 	run,
 	runOrThrow,
+	shellQuote,
+	sleep,
+	splitLines,
+	stringifyError,
+	stripTerminalNoise,
+	tailLines,
 	tmuxWindowExists,
+	truncateWithEllipsis,
 } from "./utils.js";
 
 describe("nowIso", () => {

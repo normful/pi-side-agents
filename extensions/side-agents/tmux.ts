@@ -1,4 +1,4 @@
-import { shellQuote, run, runOrThrow, splitLines } from "./utils.js";
+import { run, runOrThrow, shellQuote, splitLines } from "./utils.js";
 
 const _ENV_AGENT_ID = "PI_SIDE_AGENT_ID";
 const _ENV_PARENT_SESSION = "PI_SIDE_PARENT_SESSION";
@@ -6,7 +6,13 @@ const _ENV_PARENT_REPO = "PI_SIDE_PARENT_REPO";
 const _ENV_STATE_ROOT = "PI_SIDE_AGENTS_ROOT";
 const _ENV_RUNTIME_DIR = "PI_SIDE_RUNTIME_DIR";
 // Reference constants to satisfy noUnusedLocals
-const _refs = { _ENV_AGENT_ID, _ENV_PARENT_SESSION, _ENV_PARENT_REPO, _ENV_STATE_ROOT, _ENV_RUNTIME_DIR };
+const _refs = {
+	_ENV_AGENT_ID,
+	_ENV_PARENT_SESSION,
+	_ENV_PARENT_REPO,
+	_ENV_STATE_ROOT,
+	_ENV_RUNTIME_DIR,
+};
 void _refs;
 
 export function ensureTmuxReady(): void {

@@ -1,24 +1,23 @@
-import { join } from "node:path";
 import { promises as fs } from "node:fs";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
+import type { Message } from "@mariozechner/pi-ai";
+import { complete } from "@mariozechner/pi-ai";
 import type {
 	ExtensionContext,
 	SessionEntry,
 } from "@mariozechner/pi-coding-agent";
-import type { Message } from "@mariozechner/pi-ai";
 import {
 	convertToLlm,
 	serializeConversation,
 } from "@mariozechner/pi-coding-agent";
-import { complete } from "@mariozechner/pi-ai";
 import { ensureDir } from "./fs.js";
+import { type AgentRecord, getRuntimeDir } from "./registry.js";
 import {
-	stripTerminalNoise,
-	truncateWithEllipsis,
 	isBacklogSeparatorLine,
 	splitLines,
+	stripTerminalNoise,
+	truncateWithEllipsis,
 } from "./utils.js";
-import { getRuntimeDir, type AgentRecord } from "./registry.js";
 
 const PROMPT_LOG_PREFIX = "[side-agent][prompt]";
 const TASK_PREVIEW_MAX_CHARS = 220;

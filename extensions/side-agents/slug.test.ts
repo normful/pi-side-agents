@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
+	deduplicateSlug,
+	isPidAlive,
+	type OrphanWorktreeLock,
+	parseOptionalPid,
 	sanitizeSlug,
 	slugFromTask,
-	deduplicateSlug,
-	parseOptionalPid,
-	isPidAlive,
 	summarizeOrphanLock,
-	type OrphanWorktreeLock,
 } from "./slug.js";
 
 describe("sanitizeSlug", () => {

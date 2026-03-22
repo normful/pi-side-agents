@@ -1,11 +1,11 @@
-import { describe, expect, test, afterAll } from "bun:test";
-import { mkdir, rm, writeFile, readFile } from "node:fs/promises";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
-	fileExists,
-	ensureDir,
-	readJsonFile,
 	atomicWrite,
+	ensureDir,
+	fileExists,
+	readJsonFile,
 	withFileLock,
 } from "./fs.js";
 

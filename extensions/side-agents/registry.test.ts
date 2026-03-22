@@ -1,24 +1,24 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { fileExists } from "./fs.js";
 import {
+	type AgentStatus,
 	emptyRegistry,
-	loadRegistry,
-	saveRegistry,
-	mutateRegistry,
-	isTerminalStatus,
-	setRecordStatus,
-	getStateRoot,
 	getMetaDir,
 	getRegistryPath,
-	getRuntimeDir,
 	getRuntimeArchiveBaseDir,
-	runtimeArchiveStamp,
-	prepareFreshRuntimeDir,
+	getRuntimeDir,
+	getStateRoot,
 	isChildRuntime,
-	type AgentStatus,
+	isTerminalStatus,
+	loadRegistry,
+	mutateRegistry,
+	prepareFreshRuntimeDir,
+	runtimeArchiveStamp,
+	saveRegistry,
+	setRecordStatus,
 } from "./registry.js";
-import { fileExists } from "./fs.js";
 
 describe("emptyRegistry", () => {
 	test("creates valid registry with version 1", () => {

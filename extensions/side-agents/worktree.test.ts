@@ -1,13 +1,13 @@
-import { describe, expect, test, afterAll, beforeEach } from "bun:test";
+import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
+import type { OrphanWorktreeLock } from "./slug.js";
 import {
-	writeWorktreeLock,
-	updateWorktreeLock,
 	cleanupWorktreeLockBestEffort,
 	reclaimOrphanWorktreeLocks,
+	updateWorktreeLock,
+	writeWorktreeLock,
 } from "./worktree.js";
-import type { OrphanWorktreeLock } from "./slug.js";
 
 describe("writeWorktreeLock", () => {
 	let testDir: string;

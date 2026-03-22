@@ -1,30 +1,32 @@
-import type { AgentToolResult, ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { basename } from "node:path";
+import type {
+	AgentToolResult,
+	ExtensionAPI,
+} from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import {
-	startAgent,
-	sendToAgent,
 	agentCheckPayload,
-	waitForAny,
-	renderInfoMessage,
-	formatStatusWord,
-	formatLabelPrefix,
-	ensureStatusPoller,
-	renderStatusLine,
-	setChildRuntimeStatus,
 	ensureChildSessionLinked,
+	ensureStatusPoller,
+	formatLabelPrefix,
+	formatStatusWord,
 	parseAgentCommandArgs,
-	summarizeTask,
+	renderInfoMessage,
+	renderStatusLine,
+	sendToAgent,
+	setChildRuntimeStatus,
 	setStatusPollContext,
+	startAgent,
+	summarizeTask,
+	waitForAny,
 } from "./agent.js";
 import { getStateRoot, mutateRegistry } from "./registry.js";
-import {
-	scanOrphanWorktreeLocks,
-	reclaimOrphanWorktreeLocks,
-} from "./worktree.js";
-import { stringifyError } from "./utils.js";
-import { run } from "./utils.js";
 import { summarizeOrphanLock } from "./slug.js";
+import { run, stringifyError } from "./utils.js";
+import {
+	reclaimOrphanWorktreeLocks,
+	scanOrphanWorktreeLocks,
+} from "./worktree.js";
 
 function resolveGitRoot(cwd: string): string {
 	const result = run("git", ["-C", cwd, "rev-parse", "--show-toplevel"]);
@@ -238,7 +240,13 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 				Type.String({ description: "Model as provider/modelId (optional)" }),
 			),
 		}),
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<AgentToolResult<unknown>> {
+		async execute(
+			_toolCallId,
+			params,
+			_signal,
+			_onUpdate,
+			ctx,
+		): Promise<AgentToolResult<unknown>> {
 			try {
 				const started = await startAgent(pi, ctx, {
 					task: params.description,
@@ -297,7 +305,13 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		parameters: Type.Object({
 			id: Type.String({ description: "Agent id" }),
 		}),
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<AgentToolResult<unknown>> {
+		async execute(
+			_toolCallId,
+			params,
+			_signal,
+			_onUpdate,
+			ctx,
+		): Promise<AgentToolResult<unknown>> {
 			try {
 				const payload = await agentCheckPayload(getStateRoot(ctx), params.id);
 				return {
@@ -332,7 +346,13 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 				description: "Agent ids to wait for",
 			}),
 		}),
-		async execute(_toolCallId, params, signal, _onUpdate, ctx): Promise<AgentToolResult<unknown>> {
+		async execute(
+			_toolCallId,
+			params,
+			signal,
+			_onUpdate,
+			ctx,
+		): Promise<AgentToolResult<unknown>> {
 			try {
 				const payload = await waitForAny(getStateRoot(ctx), params.ids, signal);
 				return {
@@ -369,7 +389,13 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 					"Prompt text to send (prefix with '!' to interrupt first instead of organic steering, '/' for slash commands like /quit)",
 			}),
 		}),
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<AgentToolResult<unknown>> {
+		async execute(
+			_toolCallId,
+			params,
+			_signal,
+			_onUpdate,
+			ctx,
+		): Promise<AgentToolResult<unknown>> {
 			try {
 				const payload = await sendToAgent(
 					getStateRoot(ctx),

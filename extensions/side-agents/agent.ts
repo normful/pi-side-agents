@@ -1,55 +1,55 @@
+import { promises as fs } from "node:fs";
+import { join } from "node:path";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
-import { join } from "node:path";
-import { promises as fs } from "node:fs";
-import {
-	ensureTmuxReady,
-	getCurrentTmuxSession,
-	createTmuxWindow,
-	tmuxPipePaneToFile,
-	tmuxSendLine,
-	tmuxInterrupt,
-	tmuxSendPrompt,
-	tmuxCaptureVisible,
-	buildLaunchScript,
-} from "./tmux.js";
-import { ensureDir, fileExists, readJsonFile, atomicWrite } from "./fs.js";
-import { run, sleep, stringifyError, tmuxWindowExists } from "./utils.js";
-import {
-	mutateRegistry,
-	setRecordStatus,
-	isTerminalStatus,
-	prepareFreshRuntimeDir,
-	getStateRoot,
-	getMetaDir,
-	isChildRuntime,
-	type AgentRecord,
-	type AgentStatus,
-	type StartAgentParams,
-	type StartAgentResult,
-	type ExitMarker,
-} from "./registry.js";
-import {
-	sanitizeSlug,
-	slugFromTask,
-	deduplicateSlug,
-	existingAgentIds,
-} from "./slug.js";
-import {
-	allocateWorktree,
-	updateWorktreeLock,
-	cleanupWorktreeLockBestEffort,
-} from "./worktree.js";
+import { atomicWrite, ensureDir, fileExists, readJsonFile } from "./fs.js";
 import {
 	appendKickoffPromptToBacklog,
 	buildKickoffPrompt,
-	sanitizeBacklogLines,
 	collectRecentBacklogLines,
+	sanitizeBacklogLines,
 	selectBacklogTailLines,
 	summarizeTask,
 } from "./prompt.js";
+import {
+	type AgentRecord,
+	type AgentStatus,
+	type ExitMarker,
+	getMetaDir,
+	getStateRoot,
+	isChildRuntime,
+	isTerminalStatus,
+	mutateRegistry,
+	prepareFreshRuntimeDir,
+	type StartAgentParams,
+	type StartAgentResult,
+	setRecordStatus,
+} from "./registry.js";
+import {
+	deduplicateSlug,
+	existingAgentIds,
+	sanitizeSlug,
+	slugFromTask,
+} from "./slug.js";
+import {
+	buildLaunchScript,
+	createTmuxWindow,
+	ensureTmuxReady,
+	getCurrentTmuxSession,
+	tmuxCaptureVisible,
+	tmuxInterrupt,
+	tmuxPipePaneToFile,
+	tmuxSendLine,
+	tmuxSendPrompt,
+} from "./tmux.js";
+import { run, sleep, stringifyError, tmuxWindowExists } from "./utils.js";
+import {
+	allocateWorktree,
+	cleanupWorktreeLockBestEffort,
+	updateWorktreeLock,
+} from "./worktree.js";
 
 const ENV_AGENT_ID = "PI_SIDE_AGENT_ID";
 const ENV_PARENT_SESSION = "PI_SIDE_PARENT_SESSION";
@@ -751,7 +751,9 @@ export async function waitForAny(
 
 			knownIds.add(id);
 			// biome-ignore lint/suspicious/noExplicitAny: ignored using `--suppress`
-			const status = (checked["agent"] as any)?.status as AgentStatus | undefined;
+			const status = (checked["agent"] as any)?.status as
+				| AgentStatus
+				| undefined;
 			if (!status) continue;
 			if (waitStateSet.has(status)) {
 				return checked;
@@ -853,8 +855,8 @@ export async function ensureChildSessionLinked(
 	}
 }
 
-export { isChildRuntime } from "./registry.js";
 export { summarizeTask } from "./prompt.js";
+export { isChildRuntime } from "./registry.js";
 
 // Child-session rendering
 
@@ -1107,7 +1109,10 @@ export function ensureStatusPoller(
  * Set the status poll context and API for use by the status poller.
  * Used by extension.ts to initialize polling state before ensureStatusPoller runs.
  */
-export function setStatusPollContext(pi: ExtensionAPI, ctx: ExtensionContext): void {
+export function setStatusPollContext(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+): void {
 	statusPollContext = ctx;
 	statusPollApi = pi;
 }

@@ -1,11 +1,11 @@
 import { promises as fs } from "node:fs";
 import { join, resolve } from "node:path";
 import {
-	readJsonFile,
 	atomicWrite,
 	ensureDir,
-	withFileLock,
 	fileExists,
+	readJsonFile,
+	withFileLock,
 } from "./fs.js";
 import { nowIso, run, stringifyError } from "./utils.js";
 

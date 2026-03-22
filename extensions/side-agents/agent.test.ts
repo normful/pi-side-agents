@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
-	statusShort,
-	statusColorRole,
+	normalizeAgentId,
 	parseAgentCommandArgs,
 	splitModelPatternAndThinking,
-	normalizeAgentId,
+	statusColorRole,
+	statusShort,
 } from "./agent.js";
 
 describe("statusShort", () => {

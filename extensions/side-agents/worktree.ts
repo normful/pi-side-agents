@@ -1,22 +1,22 @@
 import { promises as fs } from "node:fs";
-import { join, dirname, resolve, basename } from "node:path";
-import { readJsonFile, atomicWrite, ensureDir } from "./fs.js";
+import { basename, dirname, join, resolve } from "node:path";
+import { atomicWrite, ensureDir, readJsonFile } from "./fs.js";
+import type { RegistryFile } from "./registry.js";
 import {
+	isPidAlive,
+	listWorktreeSlots,
+	type OrphanWorktreeLock,
+	type OrphanWorktreeLockScan,
+	parseOptionalPid,
+	type WorktreeSlot,
+} from "./slug.js";
+import {
+	nowIso,
 	run,
 	runOrThrow,
-	nowIso,
 	stringifyError,
 	tmuxWindowExists,
 } from "./utils.js";
-import {
-	listWorktreeSlots,
-	parseOptionalPid,
-	isPidAlive,
-	type WorktreeSlot,
-	type OrphanWorktreeLock,
-	type OrphanWorktreeLockScan,
-} from "./slug.js";
-import type { RegistryFile } from "./registry.js";
 
 export async function writeWorktreeLock(
 	worktreePath: string,
