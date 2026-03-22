@@ -193,9 +193,8 @@ while true; do
 
   set +e
   (
-    cd "$PARENT_ROOT" || exit 1
-    git checkout "$MAIN_BRANCH" >/dev/null 2>&1 || exit 1
-    git merge --ff-only "$BRANCH"
+    git -C "$PARENT_ROOT" checkout "$MAIN_BRANCH" >/dev/null 2>&1 || exit 1
+    git -C "$PARENT_ROOT" merge --ff-only "$BRANCH"
   )
   merge_status=$?
   set -e
