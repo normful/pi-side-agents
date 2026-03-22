@@ -255,8 +255,10 @@ export async function allocateWorktree(options: {
 	// We don't need to scan for existing slots anymore — mkdtemp always creates fresh dirs
 	const repoBasename = repoRoot.split("/").pop() ?? "repo";
 	const worktreeParentDirName = "pi-side-agent-worktrees";
+	const worktreeParentDir = join(tmpdir(), worktreeParentDirName);
+	await fs.mkdir(worktreeParentDir, { recursive: true });
 	const worktreePath = await fs.mkdtemp(
-		join(tmpdir(), `${worktreeParentDirName}/${repoBasename}-`),
+		join(worktreeParentDir, `${repoBasename}-`),
 	);
 
 	const chosenPath = worktreePath;
