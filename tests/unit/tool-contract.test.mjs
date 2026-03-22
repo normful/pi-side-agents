@@ -51,11 +51,16 @@ function tailLines(text, count) {
 }
 
 function stripTerminalNoise(text) {
-	return text
-		.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
-		.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
-		.replace(/\r/g, "")
-		.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+	return (
+		text
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: ignored using `--suppress`
+			.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: ignored using `--suppress`
+			.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
+			.replace(/\r/g, "")
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: ignored using `--suppress`
+			.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "")
+	);
 }
 
 function truncateWithEllipsis(text, maxChars) {
@@ -249,6 +254,7 @@ async function makeTempRegistry(t, agents = {}) {
 	const registry = { version: 1, agents };
 	await writeFile(
 		join(metaDir, "registry.json"),
+		// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 		JSON.stringify(registry, null, 2) + "\n",
 		"utf8",
 	);
@@ -477,6 +483,7 @@ test("collectRecentBacklogLines — visible pane is bounded unlike backlog.log",
 });
 
 test("summarizeTask — collapses whitespace and truncates", () => {
+	// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 	const task = "Line one\n\n\tline two with details " + "x".repeat(400);
 	const summary = summarizeTask(task, 120);
 	assert.ok(!summary.includes("\n"), "summary should be single-line");
@@ -547,6 +554,7 @@ test("cleanupWorktreeLockBestEffort — removes existing lock and remains idempo
 	await mkdir(join(worktreePath, ".pi"), { recursive: true });
 	await writeFile(
 		lockPath,
+		// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 		JSON.stringify({ agentId: "a-0001" }) + "\n",
 		"utf8",
 	);
@@ -623,6 +631,7 @@ test("agent-start success shape must include ok: true and task", () => {
 
 test("agent-start task field — short description is not truncated", () => {
 	const desc = "Fix the login bug";
+	// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 	const task = desc.length > 200 ? desc.slice(0, 200) + "…" : desc;
 	assert.strictEqual(task, "Fix the login bug");
 	assert.ok(!task.endsWith("…"), "short task should not have ellipsis");
@@ -630,6 +639,7 @@ test("agent-start task field — short description is not truncated", () => {
 
 test("agent-start task field — long description is truncated with ellipsis", () => {
 	const desc = "x".repeat(300);
+	// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 	const task = desc.length > 200 ? desc.slice(0, 200) + "…" : desc;
 	assert.strictEqual(
 		task.length,
@@ -642,6 +652,7 @@ test("agent-start task field — long description is truncated with ellipsis", (
 
 test("agent-start task field — exactly 200 chars is not truncated", () => {
 	const desc = "y".repeat(200);
+	// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 	const task = desc.length > 200 ? desc.slice(0, 200) + "…" : desc;
 	assert.strictEqual(task.length, 200);
 	assert.ok(

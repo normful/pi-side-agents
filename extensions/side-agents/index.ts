@@ -190,8 +190,11 @@ const BACKLOG_LINE_MAX_CHARS = 240;
 const BACKLOG_TOTAL_MAX_CHARS = 2400;
 const TMUX_BACKLOG_CAPTURE_LINES = 300;
 const BACKLOG_SEPARATOR_RE = /^[-─—_=]{5,}$/u;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: ignored using `--suppress`
 const ANSI_CSI_RE = /\x1b\[[0-?]*[ -/]*[@-~]/g;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: ignored using `--suppress`
 const ANSI_OSC_RE = /\x1b\][^\x07]*(?:\x07|\x1b\\)/g;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: ignored using `--suppress`
 const CONTROL_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
 const SUMMARY_MAX_LINES = 10;
 const SUMMARY_MAX_CHARS = 700;
@@ -594,6 +597,7 @@ async function withFileLock<T>(
 			const handle = await fs.open(lockPath, "wx");
 			try {
 				await handle.writeFile(
+					// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 					JSON.stringify({ pid: process.pid, createdAt: nowIso() }) + "\n",
 					"utf8",
 				);
@@ -607,6 +611,7 @@ async function withFileLock<T>(
 				await handle.close().catch(() => {});
 				await fs.unlink(lockPath).catch(() => {});
 			}
+			// biome-ignore lint/suspicious/noExplicitAny: ignored using `--suppress`
 		} catch (err: any) {
 			if (err?.code !== "EEXIST") throw err;
 
@@ -666,6 +671,7 @@ async function saveRegistry(
 	registry: RegistryFile,
 ): Promise<void> {
 	const registryPath = getRegistryPath(stateRoot);
+	// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 	await atomicWrite(registryPath, JSON.stringify(registry, null, 2) + "\n");
 }
 
@@ -833,6 +839,7 @@ async function writeWorktreeLock(
 ): Promise<void> {
 	const lockPath = join(worktreePath, ".pi", "active.lock");
 	await ensureDir(dirname(lockPath));
+	// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 	await atomicWrite(lockPath, JSON.stringify(payload, null, 2) + "\n");
 }
 
@@ -934,6 +941,7 @@ function isPidAlive(pid?: number): boolean {
 	try {
 		process.kill(pid, 0);
 		return true;
+		// biome-ignore lint/suspicious/noExplicitAny: ignored using `--suppress`
 	} catch (err: any) {
 		return err?.code === "EPERM";
 	}
@@ -1011,6 +1019,7 @@ async function reclaimOrphanWorktreeLocks(
 		try {
 			await fs.unlink(lock.lockPath);
 			removed.push(lock.lockPath);
+			// biome-ignore lint/suspicious/noExplicitAny: ignored using `--suppress`
 		} catch (err: any) {
 			if (err?.code === "ENOENT") continue;
 			failed.push({ lockPath: lock.lockPath, error: stringifyError(err) });
@@ -1452,6 +1461,7 @@ function tmuxSendPrompt(windowId: string, prompt: string): void {
 	runOrThrow("tmux", ["send-keys", "-t", windowId, "C-m"]);
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: ignored using `--suppress`
 function tmuxCaptureTail(windowId: string, lines = 10): string[] {
 	const captured = run("tmux", [
 		"capture-pane",
@@ -1825,6 +1835,7 @@ async function startAgent(
 		);
 		if (kickoff.warning) aggregatedWarnings.push(kickoff.warning);
 
+		// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 		await atomicWrite(promptPath, kickoff.prompt + "\n");
 		try {
 			await mutateRegistry(stateRoot, async (registry) => {
@@ -2086,6 +2097,7 @@ async function waitForAny(
 		}
 
 		const unknownOnFirstPass: string[] = [];
+		// biome-ignore lint/correctness/noUnusedVariables: ignored using `--suppress`
 		let knownCount = 0;
 
 		for (const id of uniqueIds) {
@@ -2107,6 +2119,7 @@ async function waitForAny(
 
 			knownIds.add(id);
 			knownCount += 1;
+			// biome-ignore lint/suspicious/noExplicitAny: ignored using `--suppress`
 			const status = (checked.agent as any)?.status as AgentStatus | undefined;
 			if (!status) continue;
 			if (waitStateSet.has(status)) {
@@ -2170,6 +2183,7 @@ async function ensureChildSessionLinked(
 		const lock = (await readJsonFile<Record<string, unknown>>(lockPath)) ?? {};
 		lock.sessionId = childSession;
 		lock.agentId = agentId;
+		// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 		await atomicWrite(lockPath, JSON.stringify(lock, null, 2) + "\n");
 	}
 
@@ -2625,7 +2639,8 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 									id: started.id,
 									task:
 										params.description.length > 200
-											? params.description.slice(0, 200) + "…"
+											? // biome-ignore lint/style/useTemplate: ignored using `--suppress`
+												params.description.slice(0, 200) + "…"
 											: params.description,
 									tmuxWindowId: started.tmuxWindowId,
 									tmuxWindowIndex: started.tmuxWindowIndex,

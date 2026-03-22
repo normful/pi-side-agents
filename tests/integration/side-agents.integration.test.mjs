@@ -77,11 +77,16 @@ async function exists(path) {
 }
 
 function normalizeScreen(text) {
-	return text
-		.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
-		.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
-		.replace(/\r/g, "")
-		.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "");
+	return (
+		text
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: ignored using `--suppress`
+			.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: ignored using `--suppress`
+			.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
+			.replace(/\r/g, "")
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: ignored using `--suppress`
+			.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+	);
 }
 
 async function waitFor(description, fn, options = {}) {
@@ -221,6 +226,7 @@ async function waitForAgentRemoved(harness, id, timeoutMs = 90_000) {
 		`${id} removed from registry`,
 		async () => {
 			const registry = await readRegistry(harness);
+			// biome-ignore lint/complexity/noUselessTernary: ignored using `--suppress`
 			return registry.agents?.[id] ? false : true;
 		},
 		{ timeoutMs, intervalMs: 300 },
@@ -699,6 +705,7 @@ async function createHarness(t, options = {}) {
 		await mkdir(join(occupiedSlotPath, ".pi"), { recursive: true });
 		await writeFile(
 			join(occupiedSlotPath, ".pi", "active.lock"),
+			// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 			JSON.stringify({
 				agentId: "a-0001",
 				pid: 123456,
@@ -716,6 +723,7 @@ async function createHarness(t, options = {}) {
 		await mkdir(join(staleSlotPath, ".pi"), { recursive: true });
 		await writeFile(
 			join(staleSlotPath, ".pi", "active.lock"),
+			// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 			JSON.stringify({
 				agentId: "orphan-9999",
 				pid: 123456,
@@ -761,6 +769,7 @@ async function createHarness(t, options = {}) {
 	await copyFile(AUTH_SOURCE, join(agentDir, "auth.json"));
 	await writeFile(
 		join(agentDir, "settings.json"),
+		// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 		JSON.stringify(
 			{
 				defaultProvider: provider,
