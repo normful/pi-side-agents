@@ -272,14 +272,13 @@ export async function resolveModelSpecForChild(
 	}
 
 	try {
-		const available = (await ctx.modelRegistry.getAvailable()) as Array<{
-			provider: string;
-			id: string;
-		}>;
+		const available = ctx.modelRegistry.getAvailable();
 		const exact = available.filter((model) => model.id === pattern);
 
 		if (exact.length === 1) {
-			const match = exact[0]!;
+			const match = exact[0];
+			if (!match) throw new Error("no match");
+
 			return {
 				modelSpec: withThinking(`${match.provider}/${match.id}`, thinking),
 			};
@@ -538,8 +537,7 @@ export async function startAgent(
 		);
 		if (kickoff.warning) aggregatedWarnings.push(kickoff.warning);
 
-		// biome-ignore lint/style/useTemplate: ignored using `--suppress`
-		await atomicWrite(promptPath, kickoff.prompt + "\n");
+		await atomicWrite(promptPath, `${kickoff.prompt}\n`);
 		try {
 			await mutateRegistry(stateRoot, async (registry) => {
 				const record = registry.agents[agentId];
