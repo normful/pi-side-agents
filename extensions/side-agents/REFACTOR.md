@@ -154,6 +154,8 @@ Types: `AgentStatus`, `AgentRecord`, `RegistryFile`, `AllocateWorktreeResult`,
 - `getMetaDir(stateRoot)` → `string`
 - `getRegistryPath(stateRoot)` → `string`
 - `getRuntimeDir(stateRoot, agentId)` → `string`
+- `getRuntimeArchiveBaseDir(stateRoot, agentId)` → `string`
+- `runtimeArchiveStamp()` → `string`
 - `prepareFreshRuntimeDir(stateRoot, agentId)` → `PrepareRuntimeDirResult`
 
 ---
