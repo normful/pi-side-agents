@@ -229,7 +229,9 @@ function collectStatusTransitions(previous, agents) {
 
 	return {
 		next,
-		transitions: previous ? transitions.sort((a, b) => a.id.localeCompare(b.id)) : [],
+		transitions: previous
+			? transitions.sort((a, b) => a.id.localeCompare(b.id))
+			: [],
 	};
 }
 
@@ -245,7 +247,11 @@ async function makeTempRegistry(t, agents = {}) {
 	await mkdir(metaDir, { recursive: true });
 
 	const registry = { version: 1, agents };
-	await writeFile(join(metaDir, "registry.json"), JSON.stringify(registry, null, 2) + "\n", "utf8");
+	await writeFile(
+		join(metaDir, "registry.json"),
+		JSON.stringify(registry, null, 2) + "\n",
+		"utf8",
+	);
 
 	return dir;
 }
@@ -314,7 +320,11 @@ test("selectBacklogTailLines — returns at least requested non-separator tail l
 	].join("\n");
 
 	const selected = selectBacklogTailLines(text, 10);
-	assert.equal(selected.length, 10, `expected 10 selected lines, got ${selected.length}`);
+	assert.equal(
+		selected.length,
+		10,
+		`expected 10 selected lines, got ${selected.length}`,
+	);
 	assert.deepEqual(selected, [
 		"line 03",
 		"line 04",
@@ -330,7 +340,12 @@ test("selectBacklogTailLines — returns at least requested non-separator tail l
 });
 
 test("sanitizeBacklogLines — filters divider-only lines but keeps regular dash text", () => {
-	const cleaned = sanitizeBacklogLines(["ok", "-----------", "────────────", "step - with context"]);
+	const cleaned = sanitizeBacklogLines([
+		"ok",
+		"-----------",
+		"────────────",
+		"step - with context",
+	]);
 	assert.deepEqual(cleaned, ["ok", "step - with context"]);
 });
 
@@ -343,10 +358,19 @@ test("sanitizeBacklogLines — strips ANSI/control sequences and truncates lines
 	const cleaned = sanitizeBacklogLines(noisy, 80, 200);
 
 	assert.ok(cleaned.length > 0, "expected sanitized lines");
-	assert.ok(cleaned[0].startsWith("ERROR"), `expected ANSI stripped line, got: ${cleaned[0]}`);
-	assert.ok(cleaned[1].endsWith("…"), "long line should be truncated with ellipsis");
+	assert.ok(
+		cleaned[0].startsWith("ERROR"),
+		`expected ANSI stripped line, got: ${cleaned[0]}`,
+	);
+	assert.ok(
+		cleaned[1].endsWith("…"),
+		"long line should be truncated with ellipsis",
+	);
 	for (const line of cleaned) {
-		assert.ok(!line.includes("\u001b"), `line must not contain escape chars: ${JSON.stringify(line)}`);
+		assert.ok(
+			!line.includes("\u001b"),
+			`line must not contain escape chars: ${JSON.stringify(line)}`,
+		);
 	}
 });
 
@@ -380,20 +404,29 @@ test("collectRecentBacklogLines — extracts content from visible pane with foot
 	];
 
 	const result = collectRecentBacklogLines(visiblePaneLines, 10);
-	assert.ok(result.length > 0, `expected non-empty result, got ${result.length} lines`);
+	assert.ok(
+		result.length > 0,
+		`expected non-empty result, got ${result.length} lines`,
+	);
 
 	// With 10 requested lines, we should get actual content (commit messages,
 	// test output) mixed in — not purely footer/status lines.
 	const joined = result.join("\n");
 	assert.ok(
-		joined.includes("tests pass") || joined.includes("fix-auth 450d750") || joined.includes("git commit") || joined.includes("PASS"),
+		joined.includes("tests pass") ||
+			joined.includes("fix-auth 450d750") ||
+			joined.includes("git commit") ||
+			joined.includes("PASS"),
 		`expected meaningful content in backlog, got:\n${joined}`,
 	);
 
 	// Separator lines should be filtered out
 	for (const line of result) {
 		const cleaned = stripTerminalNoise(line).trim();
-		assert.ok(!BACKLOG_SEPARATOR_RE.test(cleaned), `separator line should be filtered: ${line}`);
+		assert.ok(
+			!BACKLOG_SEPARATOR_RE.test(cleaned),
+			`separator line should be filtered: ${line}`,
+		);
 	}
 });
 
@@ -410,7 +443,9 @@ test("collectRecentBacklogLines — visible pane is bounded unlike backlog.log",
 	const backlogFileLines = [];
 	backlogFileLines.push("Real content: all tests passed");
 	for (let i = 0; i < 200; i++) {
-		backlogFileLines.push("── smart ──────────────────────────────────────────────────────────────");
+		backlogFileLines.push(
+			"── smart ──────────────────────────────────────────────────────────────",
+		);
 		backlogFileLines.push("~/projects/repo (side-agent/foo)");
 		backlogFileLines.push(`↑10 ↓2k R100k W5k $0.${String(i).padStart(3, "0")}`);
 		backlogFileLines.push("YOLO mode foo:run@3 │ Claude │ Ctx ━━━━━━ 5% used");
@@ -464,7 +499,9 @@ test("collectStatusTransitions — changed status emits transition with tmux fal
 		["alpha", { status: "running", tmuxWindowIndex: 17 }],
 	]);
 
-	const { transitions } = collectStatusTransitions(previous, [{ id: "alpha", status: "waiting_user" }]);
+	const { transitions } = collectStatusTransitions(previous, [
+		{ id: "alpha", status: "waiting_user" },
+	]);
 	assert.deepEqual(transitions, [
 		{
 			id: "alpha",
@@ -508,7 +545,11 @@ test("cleanupWorktreeLockBestEffort — removes existing lock and remains idempo
 	const worktreePath = join(dir, "wt-0001");
 	const lockPath = join(worktreePath, ".pi", "active.lock");
 	await mkdir(join(worktreePath, ".pi"), { recursive: true });
-	await writeFile(lockPath, JSON.stringify({ agentId: "a-0001" }) + "\n", "utf8");
+	await writeFile(
+		lockPath,
+		JSON.stringify({ agentId: "a-0001" }) + "\n",
+		"utf8",
+	);
 
 	await cleanupWorktreeLockBestEffort(worktreePath);
 
@@ -528,7 +569,9 @@ test("cleanupWorktreeLockBestEffort — missing path and missing lock never thro
 	t.after(() => rm(dir, { recursive: true, force: true }));
 
 	await assert.doesNotReject(() => cleanupWorktreeLockBestEffort(undefined));
-	await assert.doesNotReject(() => cleanupWorktreeLockBestEffort(join(dir, "wt-no-lock")));
+	await assert.doesNotReject(() =>
+		cleanupWorktreeLockBestEffort(join(dir, "wt-no-lock")),
+	);
 });
 
 // ---------------------------------------------------------------------------
@@ -549,14 +592,33 @@ test("agent-start success shape must include ok: true and task", () => {
 		warnings: [],
 	};
 
-	assert.strictEqual(exampleSuccess.ok, true, "success response must have ok: true");
+	assert.strictEqual(
+		exampleSuccess.ok,
+		true,
+		"success response must have ok: true",
+	);
 	assert.ok(typeof exampleSuccess.id === "string", "id must be a string");
 	assert.ok(typeof exampleSuccess.task === "string", "task must be a string");
-	assert.ok(typeof exampleSuccess.tmuxWindowId === "string", "tmuxWindowId must be a string");
-	assert.ok(typeof exampleSuccess.tmuxWindowIndex === "number", "tmuxWindowIndex must be a number");
-	assert.ok(typeof exampleSuccess.worktreePath === "string", "worktreePath must be a string");
-	assert.ok(typeof exampleSuccess.branch === "string", "branch must be a string");
-	assert.ok(Array.isArray(exampleSuccess.warnings), "warnings must be an array");
+	assert.ok(
+		typeof exampleSuccess.tmuxWindowId === "string",
+		"tmuxWindowId must be a string",
+	);
+	assert.ok(
+		typeof exampleSuccess.tmuxWindowIndex === "number",
+		"tmuxWindowIndex must be a number",
+	);
+	assert.ok(
+		typeof exampleSuccess.worktreePath === "string",
+		"worktreePath must be a string",
+	);
+	assert.ok(
+		typeof exampleSuccess.branch === "string",
+		"branch must be a string",
+	);
+	assert.ok(
+		Array.isArray(exampleSuccess.warnings),
+		"warnings must be an array",
+	);
 });
 
 test("agent-start task field — short description is not truncated", () => {
@@ -569,7 +631,11 @@ test("agent-start task field — short description is not truncated", () => {
 test("agent-start task field — long description is truncated with ellipsis", () => {
 	const desc = "x".repeat(300);
 	const task = desc.length > 200 ? desc.slice(0, 200) + "…" : desc;
-	assert.strictEqual(task.length, 201, "truncated task should be 200 chars + ellipsis");
+	assert.strictEqual(
+		task.length,
+		201,
+		"truncated task should be 200 chars + ellipsis",
+	);
 	assert.ok(task.endsWith("…"), "truncated task must end with ellipsis");
 	assert.strictEqual(task.slice(0, 200), "x".repeat(200));
 });
@@ -578,7 +644,10 @@ test("agent-start task field — exactly 200 chars is not truncated", () => {
 	const desc = "y".repeat(200);
 	const task = desc.length > 200 ? desc.slice(0, 200) + "…" : desc;
 	assert.strictEqual(task.length, 200);
-	assert.ok(!task.endsWith("…"), "exact-boundary task should not have ellipsis");
+	assert.ok(
+		!task.endsWith("…"),
+		"exact-boundary task should not have ellipsis",
+	);
 });
 
 test("agent-start error shape must include ok: false and error string", () => {
@@ -620,7 +689,10 @@ test("agent-send success shape", () => {
 });
 
 test("agent-send failure shape", () => {
-	const exampleFailure = { ok: false, message: "Agent a-9999 tmux window is not active" };
+	const exampleFailure = {
+		ok: false,
+		message: "Agent a-9999 tmux window is not active",
+	};
 	assert.strictEqual(exampleFailure.ok, false);
 	assert.ok(typeof exampleFailure.message === "string");
 });
@@ -633,7 +705,10 @@ test("waitForAny — empty ids array returns error immediately", async () => {
 	const result = await waitForAnyFirstPass("/does/not/exist", []);
 	assert.strictEqual(result.ok, false);
 	assert.ok(typeof result.error === "string");
-	assert.ok(result.error.includes("No agent ids"), `expected 'No agent ids' in: ${result.error}`);
+	assert.ok(
+		result.error.includes("No agent ids"),
+		`expected 'No agent ids' in: ${result.error}`,
+	);
 });
 
 test("waitForAny — unknown agent id returns { ok: false, error } immediately on first pass", async (t) => {
@@ -642,7 +717,10 @@ test("waitForAny — unknown agent id returns { ok: false, error } immediately o
 
 	assert.strictEqual(result.ok, false, "should be ok: false for unknown id");
 	assert.ok(typeof result.error === "string", "error must be a string");
-	assert.ok(result.error.includes("a-9999"), `error should name the unknown id, got: ${result.error}`);
+	assert.ok(
+		result.error.includes("a-9999"),
+		`error should name the unknown id, got: ${result.error}`,
+	);
 });
 
 test("waitForAny — mix of known+unknown ids fails fast on unknown", async (t) => {
@@ -658,8 +736,15 @@ test("waitForAny — mix of known+unknown ids fails fast on unknown", async (t) 
 	});
 
 	const result = await waitForAnyFirstPass(stateRoot, ["a-0001", "a-9999"]);
-	assert.strictEqual(result.ok, false, "should fail fast when any id is unknown");
-	assert.ok(result.error.includes("a-9999"), `error should name a-9999, got: ${result.error}`);
+	assert.strictEqual(
+		result.ok,
+		false,
+		"should fail fast when any id is unknown",
+	);
+	assert.ok(
+		result.error.includes("a-9999"),
+		`error should name a-9999, got: ${result.error}`,
+	);
 });
 
 test("waitForAny — waiting_user agent is detected on first pass", async (t) => {
@@ -675,7 +760,11 @@ test("waitForAny — waiting_user agent is detected on first pass", async (t) =>
 	});
 
 	const result = await waitForAnyFirstPass(stateRoot, ["a-0001"]);
-	assert.strictEqual(result.ok, true, "should detect waiting_user as default target state");
+	assert.strictEqual(
+		result.ok,
+		true,
+		"should detect waiting_user as default target state",
+	);
 	assert.strictEqual(result.agent?.id, "a-0001");
 	assert.strictEqual(result.agent?.status, "waiting_user");
 });
@@ -694,7 +783,11 @@ test("waitForAny — failed agent is detected on first pass", async (t) => {
 	});
 
 	const result = await waitForAnyFirstPass(stateRoot, ["a-0001"]);
-	assert.strictEqual(result.ok, true, "should detect failed as default target state");
+	assert.strictEqual(
+		result.ok,
+		true,
+		"should detect failed as default target state",
+	);
 	assert.strictEqual(result.agent?.id, "a-0001");
 	assert.strictEqual(result.agent?.status, "failed");
 });
@@ -713,8 +806,14 @@ test("waitForAny — legacy done status is not in default wait targets", async (
 	});
 
 	const result = await waitForAnyFirstPass(stateRoot, ["a-0001"]);
-	assert.strictEqual(result.ok, false, "done should not be a default wait target anymore");
-	assert.ok(result.error.includes("poll required") || typeof result.error === "string");
+	assert.strictEqual(
+		result.ok,
+		false,
+		"done should not be a default wait target anymore",
+	);
+	assert.ok(
+		result.error.includes("poll required") || typeof result.error === "string",
+	);
 });
 
 test("waitForAny — running agent with valid registry signals poll-needed", async (t) => {
@@ -731,8 +830,14 @@ test("waitForAny — running agent with valid registry signals poll-needed", asy
 
 	// First pass finds a known agent, but not in default target states.
 	const result = await waitForAnyFirstPass(stateRoot, ["a-0001"]);
-	assert.strictEqual(result.ok, false, "running should not return ok: true yet");
-	assert.ok(result.error.includes("poll required") || typeof result.error === "string");
+	assert.strictEqual(
+		result.ok,
+		false,
+		"running should not return ok: true yet",
+	);
+	assert.ok(
+		result.error.includes("poll required") || typeof result.error === "string",
+	);
 });
 
 // ---------------------------------------------------------------------------
@@ -796,35 +901,58 @@ test("agent-send '/' prefix is forwarded verbatim (no special parse)", () => {
  * is a separate code path that returns the raw task.
  */
 function buildSimpleKickoffPrompt(task, parentSession) {
-	const sessionSuffix = parentSession ? `\n\nParent Pi session: ${parentSession}` : "";
+	const sessionSuffix = parentSession
+		? `\n\nParent Pi session: ${parentSession}`
+		: "";
 	return task + sessionSuffix;
 }
 
 test("kickoff prompt — appends parent session path when available", () => {
-	const result = buildSimpleKickoffPrompt("Fix the bug", "/home/user/.pi/agent/sessions/abc123/session.jsonl");
+	const result = buildSimpleKickoffPrompt(
+		"Fix the bug",
+		"/home/user/.pi/agent/sessions/abc123/session.jsonl",
+	);
 	assert.ok(result.startsWith("Fix the bug"), "task must come first");
-	assert.ok(result.includes("Parent Pi session: /home/user/.pi/agent/sessions/abc123/session.jsonl"),
-		"must include parent session path");
+	assert.ok(
+		result.includes(
+			"Parent Pi session: /home/user/.pi/agent/sessions/abc123/session.jsonl",
+		),
+		"must include parent session path",
+	);
 });
 
 test("kickoff prompt — no suffix when parent session is undefined", () => {
 	const result = buildSimpleKickoffPrompt("Fix the bug", undefined);
-	assert.strictEqual(result, "Fix the bug", "should be raw task without suffix");
+	assert.strictEqual(
+		result,
+		"Fix the bug",
+		"should be raw task without suffix",
+	);
 });
 
 test("kickoff prompt — no suffix when parent session is empty string", () => {
 	const result = buildSimpleKickoffPrompt("Fix the bug", "");
-	assert.strictEqual(result, "Fix the bug", "empty session should produce no suffix");
+	assert.strictEqual(
+		result,
+		"Fix the bug",
+		"empty session should produce no suffix",
+	);
 });
 
 test("kickoff prompt — suffix is separated by blank line from task", () => {
 	const result = buildSimpleKickoffPrompt("Do something", "/tmp/session.jsonl");
 	const lines = result.split("\n");
 	// task, blank, blank (from \n\n), then "Parent Pi session: ..."
-	assert.ok(lines.length >= 3, `expected at least 3 lines, got ${lines.length}`);
+	assert.ok(
+		lines.length >= 3,
+		`expected at least 3 lines, got ${lines.length}`,
+	);
 	assert.strictEqual(lines[0], "Do something");
 	assert.strictEqual(lines[1], "", "first separator line should be empty");
-	assert.ok(lines[2].startsWith("Parent Pi session:"), "third line should be the session ref");
+	assert.ok(
+		lines[2].startsWith("Parent Pi session:"),
+		"third line should be the session ref",
+	);
 });
 
 // ---------------------------------------------------------------------------
@@ -847,7 +975,24 @@ function sanitizeSlug(raw) {
 }
 
 function slugFromTask(task) {
-	const stopWords = new Set(["a", "an", "the", "to", "in", "on", "at", "of", "for", "and", "or", "is", "it", "be", "do", "with"]);
+	const stopWords = new Set([
+		"a",
+		"an",
+		"the",
+		"to",
+		"in",
+		"on",
+		"at",
+		"of",
+		"for",
+		"and",
+		"or",
+		"is",
+		"it",
+		"be",
+		"do",
+		"with",
+	]);
 	const words = task
 		.replace(/[^a-zA-Z0-9\s]/g, " ")
 		.split(/\s+/)
@@ -886,8 +1031,14 @@ test("sanitizeSlug — empty input returns empty string", () => {
 });
 
 test("slugFromTask — extracts meaningful words, skips stop words", () => {
-	assert.strictEqual(slugFromTask("Fix the auth leak in the login page"), "fix-auth-leak");
-	assert.strictEqual(slugFromTask("Add a retry to the upload logic"), "add-retry-upload");
+	assert.strictEqual(
+		slugFromTask("Fix the auth leak in the login page"),
+		"fix-auth-leak",
+	);
+	assert.strictEqual(
+		slugFromTask("Add a retry to the upload logic"),
+		"add-retry-upload",
+	);
 });
 
 test("slugFromTask — falls back to 'agent' for empty/stopword-only input", () => {
@@ -897,12 +1048,21 @@ test("slugFromTask — falls back to 'agent' for empty/stopword-only input", () 
 
 test("deduplicateSlug — returns slug as-is when no collision", () => {
 	assert.strictEqual(deduplicateSlug("fix-auth", new Set()), "fix-auth");
-	assert.strictEqual(deduplicateSlug("fix-auth", new Set(["other"])), "fix-auth");
+	assert.strictEqual(
+		deduplicateSlug("fix-auth", new Set(["other"])),
+		"fix-auth",
+	);
 });
 
 test("deduplicateSlug — appends suffix on collision", () => {
-	assert.strictEqual(deduplicateSlug("fix-auth", new Set(["fix-auth"])), "fix-auth-2");
-	assert.strictEqual(deduplicateSlug("fix-auth", new Set(["fix-auth", "fix-auth-2"])), "fix-auth-3");
+	assert.strictEqual(
+		deduplicateSlug("fix-auth", new Set(["fix-auth"])),
+		"fix-auth-2",
+	);
+	assert.strictEqual(
+		deduplicateSlug("fix-auth", new Set(["fix-auth", "fix-auth-2"])),
+		"fix-auth-3",
+	);
 });
 
 test("agent branch name follows side-agent/<slug> convention", () => {

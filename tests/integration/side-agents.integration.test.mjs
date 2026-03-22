@@ -21,7 +21,8 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 const PROJECT_ROOT = resolve(process.cwd());
 const EXTENSION_SOURCE = resolve(PROJECT_ROOT, "extensions/side-agents.ts");
-const MODEL_SPEC = process.env.PI_SIDE_IT_MODEL ?? "openai-codex/gpt-5.1-codex-mini";
+const MODEL_SPEC =
+	process.env.PI_SIDE_IT_MODEL ?? "openai-codex/gpt-5.1-codex-mini";
 const AUTH_SOURCE = join(homedir(), ".pi", "agent", "auth.json");
 const TEST_TIMEOUT = Number(process.env.PI_SIDE_IT_TIMEOUT_MS ?? 240_000);
 
@@ -46,7 +47,9 @@ function run(command, args, options = {}) {
 	});
 
 	if (result.error) {
-		throw new Error(`Command error: ${command} ${args.join(" ")}\n${result.error.message}`);
+		throw new Error(
+			`Command error: ${command} ${args.join(" ")}\n${result.error.message}`,
+		);
 	}
 
 	if ((result.status ?? 1) !== 0 && !options.allowFailure) {
@@ -97,7 +100,8 @@ async function waitFor(description, fn, options = {}) {
 		await sleep(intervalMs);
 	}
 
-	const suffix = lastError instanceof Error ? ` (last error: ${lastError.message})` : "";
+	const suffix =
+		lastError instanceof Error ? ` (last error: ${lastError.message})` : "";
 	throw new Error(`Timed out waiting for ${description}${suffix}`);
 }
 
@@ -149,7 +153,14 @@ function tmux(harness, args, options = {}) {
 }
 
 async function capturePane(harness, target, lines = 400) {
-	const result = tmux(harness, ["capture-pane", "-p", "-t", target, "-S", `-${lines}`]);
+	const result = tmux(harness, [
+		"capture-pane",
+		"-p",
+		"-t",
+		target,
+		"-S",
+		`-${lines}`,
+	]);
 	return result.stdout;
 }
 
@@ -172,7 +183,12 @@ async function sendParentCommand(harness, command) {
 }
 
 async function readRegistry(harness) {
-	const registryPath = join(harness.repoRoot, ".pi", "side-agents", "registry.json");
+	const registryPath = join(
+		harness.repoRoot,
+		".pi",
+		"side-agents",
+		"registry.json",
+	);
 	if (!(await exists(registryPath))) {
 		return { version: 1, agents: {} };
 	}
@@ -192,7 +208,8 @@ async function waitForAgent(harness, id, options = {}) {
 				return false;
 			}
 			if (options.status && agent.status !== options.status) return false;
-			if (options.terminal && !["failed", "crashed"].includes(agent.status)) return false;
+			if (options.terminal && !["failed", "crashed"].includes(agent.status))
+				return false;
 			return agent;
 		},
 		{ timeoutMs: options.timeoutMs ?? 90_000, intervalMs: 300 },
@@ -232,10 +249,20 @@ async function snapshotAgentIds(harness) {
 }
 
 function hasSpawnMetadata(agent) {
-	return Boolean(agent?.tmuxWindowId && agent?.worktreePath && agent?.runtimeDir && agent?.promptPath && agent?.logPath);
+	return Boolean(
+		agent?.tmuxWindowId &&
+			agent?.worktreePath &&
+			agent?.runtimeDir &&
+			agent?.promptPath &&
+			agent?.logPath,
+	);
 }
 
-async function waitForNewSpawnedAgent(harness, previousIds, timeoutMs = 90_000) {
+async function waitForNewSpawnedAgent(
+	harness,
+	previousIds,
+	timeoutMs = 90_000,
+) {
 	const previous = previousIds ?? new Set();
 	return waitFor(
 		"new spawned agent metadata",
@@ -283,8 +310,20 @@ function windowExists(harness, windowId) {
 	return result.status === 0 && result.stdout.trim() === windowId;
 }
 
-async function waitForBacklogContains(harness, agentId, needle, timeoutMs = 90_000) {
-	const backlogPath = join(harness.repoRoot, ".pi", "side-agents", "runtime", agentId, "backlog.log");
+async function waitForBacklogContains(
+	harness,
+	agentId,
+	needle,
+	timeoutMs = 90_000,
+) {
+	const backlogPath = join(
+		harness.repoRoot,
+		".pi",
+		"side-agents",
+		"runtime",
+		agentId,
+		"backlog.log",
+	);
 	return waitFor(
 		`backlog for ${agentId} to contain ${needle}`,
 		async () => {
@@ -394,7 +433,9 @@ function findAssistantToolCallEntry(entries, toolName) {
 	for (const e of [...entries].reverse()) {
 		if (e.type !== "message" || e.message?.role !== "assistant") continue;
 		const content = Array.isArray(e.message.content) ? e.message.content : [];
-		const tc = content.find((c) => c.type === "toolCall" && c.name === toolName);
+		const tc = content.find(
+			(c) => c.type === "toolCall" && c.name === toolName,
+		);
 		if (tc) return { entry: e, toolCall: tc };
 	}
 	return null;
@@ -404,7 +445,11 @@ function findAssistantToolCallEntry(entries, toolName) {
  * Poll the parent session JSONL file until a tool-result entry for the named
  * tool appears, then return { entry, payload }.
  */
-async function waitForToolResultInSession(harness, toolName, timeoutMs = 90_000) {
+async function waitForToolResultInSession(
+	harness,
+	toolName,
+	timeoutMs = 90_000,
+) {
 	return waitFor(
 		`tool result for "${toolName}" in parent session`,
 		async () => {
@@ -416,13 +461,20 @@ async function waitForToolResultInSession(harness, toolName, timeoutMs = 90_000)
 	);
 }
 
-async function waitForNextToolResultInSession(harness, toolName, previousCount, timeoutMs = 90_000) {
+async function waitForNextToolResultInSession(
+	harness,
+	toolName,
+	previousCount,
+	timeoutMs = 90_000,
+) {
 	return waitFor(
 		`next tool result for "${toolName}" in parent session`,
 		async () => {
 			const entries = await readParentSessionEntries(harness);
 			const results = extractToolResultPayloads(entries, toolName);
-			return results.length > previousCount ? results[results.length - 1] : false;
+			return results.length > previousCount
+				? results[results.length - 1]
+				: false;
 		},
 		{ timeoutMs, intervalMs: 500 },
 	);
@@ -436,7 +488,10 @@ async function callToolViaPrompt(harness, toolName, params, options = {}) {
 
 	for (let attempt = 1; attempt <= retries; attempt += 1) {
 		const beforeEntries = await readParentSessionEntries(harness);
-		const beforeCount = extractToolResultPayloads(beforeEntries, toolName).length;
+		const beforeCount = extractToolResultPayloads(
+			beforeEntries,
+			toolName,
+		).length;
 
 		const prompt =
 			attempt === 1
@@ -446,7 +501,12 @@ async function callToolViaPrompt(harness, toolName, params, options = {}) {
 		await sendParentCommand(harness, prompt);
 
 		try {
-			return await waitForNextToolResultInSession(harness, toolName, beforeCount, timeoutMs);
+			return await waitForNextToolResultInSession(
+				harness,
+				toolName,
+				beforeCount,
+				timeoutMs,
+			);
 		} catch (error) {
 			lastError = error;
 		}
@@ -456,18 +516,37 @@ async function callToolViaPrompt(harness, toolName, params, options = {}) {
 }
 
 async function callAgentCheckTool(harness, id, timeoutMs = 90_000) {
-	return callToolViaPrompt(harness, "agent-check", { id }, { timeoutMs, retries: 3 });
+	return callToolViaPrompt(
+		harness,
+		"agent-check",
+		{ id },
+		{ timeoutMs, retries: 3 },
+	);
 }
 
 async function callAgentSendTool(harness, id, prompt, timeoutMs = 90_000) {
-	return callToolViaPrompt(harness, "agent-send", { id, prompt }, { timeoutMs, retries: 3 });
+	return callToolViaPrompt(
+		harness,
+		"agent-send",
+		{ id, prompt },
+		{ timeoutMs, retries: 3 },
+	);
 }
 
 async function readWindowIdFromLaunchScript(harness, agentId) {
-	const launchPath = join(harness.repoRoot, ".pi", "side-agents", "runtime", agentId, "launch.sh");
+	const launchPath = join(
+		harness.repoRoot,
+		".pi",
+		"side-agents",
+		"runtime",
+		agentId,
+		"launch.sh",
+	);
 	if (!(await exists(launchPath))) return undefined;
 	const raw = await readFile(launchPath, "utf8").catch(() => "");
-	const match = raw.match(/(?:^|\n)WINDOW_ID=(?:'([^']+)'|"([^"]+)"|([^\s\n]+))/);
+	const match = raw.match(
+		/(?:^|\n)WINDOW_ID=(?:'([^']+)'|"([^"]+)"|([^\s\n]+))/,
+	);
 	return match?.[1] || match?.[2] || match?.[3];
 }
 
@@ -483,7 +562,11 @@ async function resolveChildWindowId(harness, agentId) {
 		return fromLaunchScript;
 	}
 
-	const list = tmux(harness, ["list-windows", "-F", "#{window_id} #{window_name}"], { allowFailure: true });
+	const list = tmux(
+		harness,
+		["list-windows", "-F", "#{window_id} #{window_name}"],
+		{ allowFailure: true },
+	);
 	if (list.status !== 0) {
 		return undefined;
 	}
@@ -500,13 +583,25 @@ async function resolveChildWindowId(harness, agentId) {
 }
 
 async function closeChildWindowAfterPrompt(harness, agentId, windowIdHint) {
-	await waitForBacklogContains(harness, agentId, "Press any key to close this tmux window", 60_000);
-
-	const terminalRecord = await waitForAgent(harness, agentId, { terminal: true, timeoutMs: 120_000 }).catch(
-		() => undefined,
+	await waitForBacklogContains(
+		harness,
+		agentId,
+		"Press any key to close this tmux window",
+		60_000,
 	);
-	const windowId = windowIdHint || terminalRecord?.tmuxWindowId || (await resolveChildWindowId(harness, agentId));
-	assert.ok(windowId, `agent ${agentId} should have a tmuxWindowId (registry/launch.sh fallback)`);
+
+	const terminalRecord = await waitForAgent(harness, agentId, {
+		terminal: true,
+		timeoutMs: 120_000,
+	}).catch(() => undefined);
+	const windowId =
+		windowIdHint ||
+		terminalRecord?.tmuxWindowId ||
+		(await resolveChildWindowId(harness, agentId));
+	assert.ok(
+		windowId,
+		`agent ${agentId} should have a tmuxWindowId (registry/launch.sh fallback)`,
+	);
 
 	if (!windowExists(harness, windowId)) {
 		return;
@@ -524,17 +619,26 @@ async function closeChildWindowAfterPrompt(harness, agentId, windowIdHint) {
 		["display-message", "-p", "-t", windowId, "#{pane_id}"],
 		{ allowFailure: true },
 	);
-	const keyTarget = paneTargetResult.status === 0 ? paneTargetResult.stdout.trim() || windowId : windowId;
+	const keyTarget =
+		paneTargetResult.status === 0
+			? paneTargetResult.stdout.trim() || windowId
+			: windowId;
 
-	tmux(harness, ["send-keys", "-t", keyTarget, "-l", "x"], { allowFailure: true });
+	tmux(harness, ["send-keys", "-t", keyTarget, "-l", "x"], {
+		allowFailure: true,
+	});
 	tmux(harness, ["send-keys", "-t", keyTarget, "C-m"], { allowFailure: true });
 	try {
 		await waitFor(
 			`tmux window ${windowId} to close`,
 			async () => {
 				if (!windowExists(harness, windowId)) return true;
-				tmux(harness, ["send-keys", "-t", keyTarget, "-l", "x"], { allowFailure: true });
-				tmux(harness, ["send-keys", "-t", keyTarget, "C-m"], { allowFailure: true });
+				tmux(harness, ["send-keys", "-t", keyTarget, "-l", "x"], {
+					allowFailure: true,
+				});
+				tmux(harness, ["send-keys", "-t", keyTarget, "C-m"], {
+					allowFailure: true,
+				});
 				return false;
 			},
 			{ timeoutMs: 30_000, intervalMs: 1_500 },
@@ -567,7 +671,9 @@ async function createHarness(t, options = {}) {
 	await mkdir(parentSessionDir, { recursive: true });
 
 	run("git", ["init", "-b", "main"], { cwd: repoRoot });
-	run("git", ["config", "user.email", "integration@example.com"], { cwd: repoRoot });
+	run("git", ["config", "user.email", "integration@example.com"], {
+		cwd: repoRoot,
+	});
 	run("git", ["config", "user.name", "Integration Runner"], { cwd: repoRoot });
 
 	await mkdir(join(repoRoot, ".pi", "extensions"), { recursive: true });
@@ -581,8 +687,15 @@ async function createHarness(t, options = {}) {
 	run("git", ["commit", "-m", "fixture init"], { cwd: repoRoot });
 
 	if (options.lockedParallelAgentSlot) {
-		const occupiedSlotPath = join(rootDir, `${basename(repoRoot)}-agent-worktree-0001`);
-		run("git", ["worktree", "add", "-B", "side-agent/a-0001", occupiedSlotPath, "main"], { cwd: repoRoot });
+		const occupiedSlotPath = join(
+			rootDir,
+			`${basename(repoRoot)}-agent-worktree-0001`,
+		);
+		run(
+			"git",
+			["worktree", "add", "-B", "side-agent/a-0001", occupiedSlotPath, "main"],
+			{ cwd: repoRoot },
+		);
 		await mkdir(join(occupiedSlotPath, ".pi"), { recursive: true });
 		await writeFile(
 			join(occupiedSlotPath, ".pi", "active.lock"),
@@ -596,7 +709,10 @@ async function createHarness(t, options = {}) {
 	}
 
 	if (options.staleLockSlot) {
-		const staleSlotPath = join(rootDir, `${basename(repoRoot)}-agent-worktree-0001`);
+		const staleSlotPath = join(
+			rootDir,
+			`${basename(repoRoot)}-agent-worktree-0001`,
+		);
 		await mkdir(join(staleSlotPath, ".pi"), { recursive: true });
 		await writeFile(
 			join(staleSlotPath, ".pi", "active.lock"),
@@ -610,17 +726,36 @@ async function createHarness(t, options = {}) {
 	}
 
 	if (options.staleRuntimeDirForId) {
-		const staleRuntimeDir = join(repoRoot, ".pi", "side-agents", "runtime", options.staleRuntimeDirForId);
+		const staleRuntimeDir = join(
+			repoRoot,
+			".pi",
+			"side-agents",
+			"runtime",
+			options.staleRuntimeDirForId,
+		);
 		const staleMarker = `stale-runtime-marker-${options.staleRuntimeDirForId}`;
 		await mkdir(staleRuntimeDir, { recursive: true });
-		await writeFile(join(staleRuntimeDir, "backlog.log"), `${staleMarker}\n`, "utf8");
-		await writeFile(join(staleRuntimeDir, "kickoff.md"), `${staleMarker}\n`, "utf8");
 		await writeFile(
-			join(staleRuntimeDir, "exit.json"),
-			JSON.stringify({ exitCode: 0, finishedAt: "2025-01-01T00:00:00.000Z" }) + "\n",
+			join(staleRuntimeDir, "backlog.log"),
+			`${staleMarker}\n`,
 			"utf8",
 		);
-		await writeFile(join(staleRuntimeDir, "launch.sh"), `#!/usr/bin/env bash\necho ${staleMarker}\n`, "utf8");
+		await writeFile(
+			join(staleRuntimeDir, "kickoff.md"),
+			`${staleMarker}\n`,
+			"utf8",
+		);
+		await writeFile(
+			join(staleRuntimeDir, "exit.json"),
+			JSON.stringify({ exitCode: 0, finishedAt: "2025-01-01T00:00:00.000Z" }) +
+				"\n",
+			"utf8",
+		);
+		await writeFile(
+			join(staleRuntimeDir, "launch.sh"),
+			`#!/usr/bin/env bash\necho ${staleMarker}\n`,
+			"utf8",
+		);
 	}
 
 	await copyFile(AUTH_SOURCE, join(agentDir, "auth.json"));
@@ -658,7 +793,17 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 
 	tmux(
 		{ tmuxSocket },
-		["new-session", "-d", "-s", sessionName, "-x", "180", "-y", "55", `bash ${launchScript}`],
+		[
+			"new-session",
+			"-d",
+			"-s",
+			sessionName,
+			"-x",
+			"180",
+			"-y",
+			"55",
+			`bash ${launchScript}`,
+		],
 		{ env },
 	);
 
@@ -733,289 +878,484 @@ function spawnWithCapture(command, args, options = {}) {
 	});
 }
 
-test(
-	"integration: /agent launch + agent-check/agent-send tools + child press-any-key close",
-	{ timeout: TEST_TIMEOUT },
-	async (t) => {
-		if (!assertAuthOrSkip(t)) return;
+test("integration: /agent launch + agent-check/agent-send tools + child press-any-key close", {
+	timeout: TEST_TIMEOUT,
+}, async (t) => {
+	if (!assertAuthOrSkip(t)) return;
 
-		const harness = await createHarness(t);
+	const harness = await createHarness(t);
 
-		const started = await startAgentViaSlashCommand(harness, "integration scenario one");
-		const agentId = started.id;
-		await waitForParentContains(harness, "side-agent started", 45_000);
-		await waitForParentContains(harness, "prompt:", 45_000);
+	const started = await startAgentViaSlashCommand(
+		harness,
+		"integration scenario one",
+	);
+	const agentId = started.id;
+	await waitForParentContains(harness, "side-agent started", 45_000);
+	await waitForParentContains(harness, "prompt:", 45_000);
 
-		assert.equal(started.branch, `side-agent/${agentId}`);
-		assert.ok(started.worktreePath, "worktreePath should be recorded");
-		assert.ok(await exists(started.worktreePath), "worktree directory should exist");
+	assert.equal(started.branch, `side-agent/${agentId}`);
+	assert.ok(started.worktreePath, "worktreePath should be recorded");
+	assert.ok(
+		await exists(started.worktreePath),
+		"worktree directory should exist",
+	);
 
-		const runtimeDir = join(harness.repoRoot, ".pi", "side-agents", "runtime", agentId);
-		for (const fileName of ["kickoff.md", "backlog.log", "launch.sh"]) {
-			assert.ok(await exists(join(runtimeDir, fileName)), `runtime file missing: ${fileName}`);
-		}
-		await waitForBacklogContains(harness, agentId, "[side-agent][prompt]", 60_000);
-		await waitForBacklogContains(harness, agentId, "integration scenario one", 60_000);
-
-		const launchScript = await readFile(join(runtimeDir, "launch.sh"), "utf8");
+	const runtimeDir = join(
+		harness.repoRoot,
+		".pi",
+		"side-agents",
+		"runtime",
+		agentId,
+	);
+	for (const fileName of ["kickoff.md", "backlog.log", "launch.sh"]) {
 		assert.ok(
-			launchScript.includes("--skill") && launchScript.includes(".pi/side-agent-skills"),
-			"child launch script should load .pi/side-agent-skills via --skill so finish is discoverable",
+			await exists(join(runtimeDir, fileName)),
+			`runtime file missing: ${fileName}`,
 		);
+	}
+	await waitForBacklogContains(
+		harness,
+		agentId,
+		"[side-agent][prompt]",
+		60_000,
+	);
+	await waitForBacklogContains(
+		harness,
+		agentId,
+		"integration scenario one",
+		60_000,
+	);
 
-		const linked = await waitFor(
-			"child session link in registry",
-			async () => {
-				const agent = await waitForAgent(harness, agentId, { timeoutMs: 5_000 });
-				return agent.childSessionId ? agent : false;
-			},
-			{ timeoutMs: 90_000, intervalMs: 300 },
-		);
-		assert.ok(linked.childSessionId, "childSessionId should be captured when child extension loads");
+	const launchScript = await readFile(join(runtimeDir, "launch.sh"), "utf8");
+	assert.ok(
+		launchScript.includes("--skill") &&
+			launchScript.includes(".pi/side-agent-skills"),
+		"child launch script should load .pi/side-agent-skills via --skill so finish is discoverable",
+	);
 
-		const lock = await waitFor(
-			"active lock to include child sessionId",
-			async () => {
-				const payload = await readWorktreeLock(started.worktreePath);
-				return payload.sessionId ? payload : false;
-			},
-			{ timeoutMs: 90_000, intervalMs: 300 },
-		);
-		assert.equal(lock.agentId, agentId);
-		assert.equal(lock.branch, started.branch);
-		assert.equal(lock.tmuxWindowId, started.tmuxWindowId);
+	const linked = await waitFor(
+		"child session link in registry",
+		async () => {
+			const agent = await waitForAgent(harness, agentId, { timeoutMs: 5_000 });
+			return agent.childSessionId ? agent : false;
+		},
+		{ timeoutMs: 90_000, intervalMs: 300 },
+	);
+	assert.ok(
+		linked.childSessionId,
+		"childSessionId should be captured when child extension loads",
+	);
 
-		await waitForParentContains(harness, `${agentId}:`, 45_000);
+	const lock = await waitFor(
+		"active lock to include child sessionId",
+		async () => {
+			const payload = await readWorktreeLock(started.worktreePath);
+			return payload.sessionId ? payload : false;
+		},
+		{ timeoutMs: 90_000, intervalMs: 300 },
+	);
+	assert.equal(lock.agentId, agentId);
+	assert.equal(lock.branch, started.branch);
+	assert.equal(lock.tmuxWindowId, started.tmuxWindowId);
 
-		await sendParentCommand(harness, "/agents");
-		await waitForParentContains(harness, agentId, 30_000);
-		await waitForParentContains(harness, `worktree:${basename(started.worktreePath)}`, 30_000);
+	await waitForParentContains(harness, `${agentId}:`, 45_000);
 
-		const runningCheck = await callAgentCheckTool(harness, agentId, 60_000);
-		assert.equal(runningCheck.payload.ok, true, `agent-check should succeed: ${JSON.stringify(runningCheck.payload)}`);
-		assert.equal(runningCheck.payload.agent?.id, agentId);
-		assert.ok(typeof runningCheck.payload.agent?.status === "string", "agent-check should return agent.status");
-		assert.ok(Array.isArray(runningCheck.payload.backlog), "agent-check should return backlog array");
-		await waitForChildPiBooted(harness, agentId, 120_000);
+	await sendParentCommand(harness, "/agents");
+	await waitForParentContains(harness, agentId, 30_000);
+	await waitForParentContains(
+		harness,
+		`worktree:${basename(started.worktreePath)}`,
+		30_000,
+	);
 
-		const steeringToken = `steering-token-${Date.now()}`;
-		const steeringSend = await callAgentSendTool(harness, agentId, steeringToken, 60_000);
-		assert.equal(steeringSend.payload.ok, true, `agent-send should succeed: ${JSON.stringify(steeringSend.payload)}`);
-		await waitForBacklogContains(harness, agentId, steeringToken, 90_000);
+	const runningCheck = await callAgentCheckTool(harness, agentId, 60_000);
+	assert.equal(
+		runningCheck.payload.ok,
+		true,
+		`agent-check should succeed: ${JSON.stringify(runningCheck.payload)}`,
+	);
+	assert.equal(runningCheck.payload.agent?.id, agentId);
+	assert.ok(
+		typeof runningCheck.payload.agent?.status === "string",
+		"agent-check should return agent.status",
+	);
+	assert.ok(
+		Array.isArray(runningCheck.payload.backlog),
+		"agent-check should return backlog array",
+	);
+	await waitForChildPiBooted(harness, agentId, 120_000);
 
-		const quitSend = await callAgentSendTool(harness, agentId, "!/quit", 60_000);
-		assert.equal(quitSend.payload.ok, true, `agent-send /quit should succeed: ${JSON.stringify(quitSend.payload)}`);
-		await waitForBacklogContains(harness, agentId, "/quit", 90_000);
+	const steeringToken = `steering-token-${Date.now()}`;
+	const steeringSend = await callAgentSendTool(
+		harness,
+		agentId,
+		steeringToken,
+		60_000,
+	);
+	assert.equal(
+		steeringSend.payload.ok,
+		true,
+		`agent-send should succeed: ${JSON.stringify(steeringSend.payload)}`,
+	);
+	await waitForBacklogContains(harness, agentId, steeringToken, 90_000);
 
-		await waitForAgentRemoved(harness, agentId, 120_000);
-		assert.ok(await exists(join(runtimeDir, "exit.json")), "exit.json should be created when child exits");
-		const exitPayload = JSON.parse(await readFile(join(runtimeDir, "exit.json"), "utf8"));
-		assert.equal(exitPayload.exitCode, 0, `expected exitCode 0 in exit marker: ${JSON.stringify(exitPayload)}`);
+	const quitSend = await callAgentSendTool(harness, agentId, "!/quit", 60_000);
+	assert.equal(
+		quitSend.payload.ok,
+		true,
+		`agent-send /quit should succeed: ${JSON.stringify(quitSend.payload)}`,
+	);
+	await waitForBacklogContains(harness, agentId, "/quit", 90_000);
 
-		const doneCheck = await callAgentCheckTool(harness, agentId, 60_000);
-		assert.equal(doneCheck.payload.ok, false, `agent-check after successful quit should be unknown: ${JSON.stringify(doneCheck.payload)}`);
-		assert.ok(
-			typeof doneCheck.payload.error === "string" && doneCheck.payload.error.includes("Unknown agent id"),
-			`expected unknown-agent error after cleanup: ${JSON.stringify(doneCheck.payload)}`,
-		);
+	await waitForAgentRemoved(harness, agentId, 120_000);
+	assert.ok(
+		await exists(join(runtimeDir, "exit.json")),
+		"exit.json should be created when child exits",
+	);
+	const exitPayload = JSON.parse(
+		await readFile(join(runtimeDir, "exit.json"), "utf8"),
+	);
+	assert.equal(
+		exitPayload.exitCode,
+		0,
+		`expected exitCode 0 in exit marker: ${JSON.stringify(exitPayload)}`,
+	);
 
-		await closeChildWindowAfterPrompt(harness, agentId);
-	},
-);
+	const doneCheck = await callAgentCheckTool(harness, agentId, 60_000);
+	assert.equal(
+		doneCheck.payload.ok,
+		false,
+		`agent-check after successful quit should be unknown: ${JSON.stringify(doneCheck.payload)}`,
+	);
+	assert.ok(
+		typeof doneCheck.payload.error === "string" &&
+			doneCheck.payload.error.includes("Unknown agent id"),
+		`expected unknown-agent error after cleanup: ${JSON.stringify(doneCheck.payload)}`,
+	);
 
-test(
-	"integration: stale runtime dir is archived before reuse and does not auto-close the new agent",
-	{ timeout: TEST_TIMEOUT },
-	async (t) => {
-		if (!assertAuthOrSkip(t)) return;
+	await closeChildWindowAfterPrompt(harness, agentId);
+});
 
-		const branchHint = "runtime-archive-regression";
-		const harness = await createHarness(t, { staleRuntimeDirForId: branchHint });
-		const runtimeDir = join(harness.repoRoot, ".pi", "side-agents", "runtime", branchHint);
-		const staleExitPath = join(runtimeDir, "exit.json");
-		const staleMarker = `stale-runtime-marker-${branchHint}`;
+test("integration: stale runtime dir is archived before reuse and does not auto-close the new agent", {
+	timeout: TEST_TIMEOUT,
+}, async (t) => {
+	if (!assertAuthOrSkip(t)) return;
 
-		assert.equal(await exists(staleExitPath), true, "fixture should create stale exit.json before launch");
+	const branchHint = "runtime-archive-regression";
+	const harness = await createHarness(t, { staleRuntimeDirForId: branchHint });
+	const runtimeDir = join(
+		harness.repoRoot,
+		".pi",
+		"side-agents",
+		"runtime",
+		branchHint,
+	);
+	const staleExitPath = join(runtimeDir, "exit.json");
+	const staleMarker = `stale-runtime-marker-${branchHint}`;
 
-		const startResult = await callToolViaPrompt(
-			harness,
-			"agent-start",
-			{
-				description: "runtime archive regression",
-				branchHint,
-				model: MODEL_SPEC,
-			},
-			{ timeoutMs: 120_000, retries: 3 },
-		);
-		const started = startResult.payload;
-		assert.equal(started.ok, true, `agent-start should succeed: ${JSON.stringify(started)}`);
-		assert.equal(started.id, branchHint, `expected deterministic id from branchHint, got: ${JSON.stringify(started)}`);
-		const agentId = started.id;
+	assert.equal(
+		await exists(staleExitPath),
+		true,
+		"fixture should create stale exit.json before launch",
+	);
 
-		await waitForSpawnedAgent(harness, agentId, 180_000);
+	const startResult = await callToolViaPrompt(
+		harness,
+		"agent-start",
+		{
+			description: "runtime archive regression",
+			branchHint,
+			model: MODEL_SPEC,
+		},
+		{ timeoutMs: 120_000, retries: 3 },
+	);
+	const started = startResult.payload;
+	assert.equal(
+		started.ok,
+		true,
+		`agent-start should succeed: ${JSON.stringify(started)}`,
+	);
+	assert.equal(
+		started.id,
+		branchHint,
+		`expected deterministic id from branchHint, got: ${JSON.stringify(started)}`,
+	);
+	const agentId = started.id;
 
-		const runningCheck = await callAgentCheckTool(harness, agentId, 60_000);
-		assert.equal(
-			runningCheck.payload.ok,
-			true,
-			`stale runtime exit marker must not auto-remove new agent: ${JSON.stringify(runningCheck.payload)}`,
-		);
-		assert.equal(await exists(staleExitPath), false, "fresh runtime dir should not carry stale exit.json into new run");
+	await waitForSpawnedAgent(harness, agentId, 180_000);
 
-		const archiveBase = join(harness.repoRoot, ".pi", "side-agents", "runtime-archive", branchHint);
-		const archivedDir = await waitFor(
-			`archived runtime dir for ${branchHint}`,
-			async () => {
-				if (!(await exists(archiveBase))) return false;
-				const entries = await readdir(archiveBase, { withFileTypes: true });
-				for (const entry of entries) {
-					if (!entry.isDirectory()) continue;
-					const candidate = join(archiveBase, entry.name);
-					const backlogPath = join(candidate, "backlog.log");
-					if (!(await exists(backlogPath))) continue;
-					const backlog = await readFile(backlogPath, "utf8");
-					if (backlog.includes(staleMarker)) {
-						return candidate;
-					}
+	const runningCheck = await callAgentCheckTool(harness, agentId, 60_000);
+	assert.equal(
+		runningCheck.payload.ok,
+		true,
+		`stale runtime exit marker must not auto-remove new agent: ${JSON.stringify(runningCheck.payload)}`,
+	);
+	assert.equal(
+		await exists(staleExitPath),
+		false,
+		"fresh runtime dir should not carry stale exit.json into new run",
+	);
+
+	const archiveBase = join(
+		harness.repoRoot,
+		".pi",
+		"side-agents",
+		"runtime-archive",
+		branchHint,
+	);
+	const archivedDir = await waitFor(
+		`archived runtime dir for ${branchHint}`,
+		async () => {
+			if (!(await exists(archiveBase))) return false;
+			const entries = await readdir(archiveBase, { withFileTypes: true });
+			for (const entry of entries) {
+				if (!entry.isDirectory()) continue;
+				const candidate = join(archiveBase, entry.name);
+				const backlogPath = join(candidate, "backlog.log");
+				if (!(await exists(backlogPath))) continue;
+				const backlog = await readFile(backlogPath, "utf8");
+				if (backlog.includes(staleMarker)) {
+					return candidate;
 				}
-				return false;
-			},
-			{ timeoutMs: 60_000, intervalMs: 300 },
-		);
-		assert.equal(await exists(join(archivedDir, "exit.json")), true, "archived runtime should preserve stale exit marker");
+			}
+			return false;
+		},
+		{ timeoutMs: 60_000, intervalMs: 300 },
+	);
+	assert.equal(
+		await exists(join(archivedDir, "exit.json")),
+		true,
+		"archived runtime should preserve stale exit marker",
+	);
 
-		await waitForChildPiBooted(harness, agentId, 120_000);
-		const quitSend = await callAgentSendTool(harness, agentId, "!/quit", 60_000);
-		assert.equal(quitSend.payload.ok, true, `agent-send should succeed: ${JSON.stringify(quitSend.payload)}`);
-		await waitForAgent(harness, agentId, { terminal: true, timeoutMs: 180_000 });
-		await closeChildWindowAfterPrompt(harness, agentId);
-	},
-);
+	await waitForChildPiBooted(harness, agentId, 120_000);
+	const quitSend = await callAgentSendTool(harness, agentId, "!/quit", 60_000);
+	assert.equal(
+		quitSend.payload.ok,
+		true,
+		`agent-send should succeed: ${JSON.stringify(quitSend.payload)}`,
+	);
+	await waitForAgent(harness, agentId, { terminal: true, timeoutMs: 180_000 });
+	await closeChildWindowAfterPrompt(harness, agentId);
+});
 
-test(
-	"integration: next agent id skips checked-out side-agent branch in a stale locked slot",
-	{ timeout: TEST_TIMEOUT },
-	async (t) => {
-		if (!assertAuthOrSkip(t)) return;
+test("integration: next agent id skips checked-out side-agent branch in a stale locked slot", {
+	timeout: TEST_TIMEOUT,
+}, async (t) => {
+	if (!assertAuthOrSkip(t)) return;
 
-		const harness = await createHarness(t, { lockedParallelAgentSlot: true });
+	const harness = await createHarness(t, { lockedParallelAgentSlot: true });
 
-		const started = await startAgentViaSlashCommand(harness, "branch collision regression", 180_000);
-		const agentId = started.id;
+	const started = await startAgentViaSlashCommand(
+		harness,
+		"branch collision regression",
+		180_000,
+	);
+	const agentId = started.id;
 
-		assert.equal(started.branch, `side-agent/${agentId}`);
-		assert.ok(started.worktreePath.endsWith("0002"), `expected slot 0002, got ${started.worktreePath}`);
-		assert.ok(
-			(started.warnings ?? []).some((warning) => warning.includes("Locked worktree is not tracked in registry")),
-			"expected stale lock warning to be surfaced",
-		);
+	assert.equal(started.branch, `side-agent/${agentId}`);
+	assert.ok(
+		started.worktreePath.endsWith("0002"),
+		`expected slot 0002, got ${started.worktreePath}`,
+	);
+	assert.ok(
+		(started.warnings ?? []).some((warning) =>
+			warning.includes("Locked worktree is not tracked in registry"),
+		),
+		"expected stale lock warning to be surfaced",
+	);
 
-		await waitForChildPiBooted(harness, agentId, 120_000);
-		const quitSend = await callAgentSendTool(harness, agentId, "!/quit", 60_000);
-		assert.equal(quitSend.payload.ok, true, `agent-send should succeed: ${JSON.stringify(quitSend.payload)}`);
-		await callAgentSendTool(harness, agentId, "!/quit", 60_000);
-		await waitForAgent(harness, agentId, { terminal: true, timeoutMs: 180_000 });
-		await closeChildWindowAfterPrompt(harness, agentId);
-	},
-);
+	await waitForChildPiBooted(harness, agentId, 120_000);
+	const quitSend = await callAgentSendTool(harness, agentId, "!/quit", 60_000);
+	assert.equal(
+		quitSend.payload.ok,
+		true,
+		`agent-send should succeed: ${JSON.stringify(quitSend.payload)}`,
+	);
+	await callAgentSendTool(harness, agentId, "!/quit", 60_000);
+	await waitForAgent(harness, agentId, { terminal: true, timeoutMs: 180_000 });
+	await closeChildWindowAfterPrompt(harness, agentId);
+});
 
-test(
-	"integration: stale/orphan lock warning visibility and worktree slot reuse",
-	{ timeout: TEST_TIMEOUT },
-	async (t) => {
-		if (!assertAuthOrSkip(t)) return;
+test("integration: stale/orphan lock warning visibility and worktree slot reuse", {
+	timeout: TEST_TIMEOUT,
+}, async (t) => {
+	if (!assertAuthOrSkip(t)) return;
 
-		const harness = await createHarness(t, { staleLockSlot: true });
+	const harness = await createHarness(t, { staleLockSlot: true });
 
-		const first = await startAgentViaSlashCommand(harness, "stale lock test");
-		const firstId = first.id;
+	const first = await startAgentViaSlashCommand(harness, "stale lock test");
+	const firstId = first.id;
 
-		assert.ok(first.worktreePath.endsWith("0002"), `expected new slot 0002, got ${first.worktreePath}`);
-		assert.ok(
-			(first.warnings ?? []).some((warning) => warning.includes("Locked worktree is not tracked in registry")),
-			"registry warnings should include stale lock warning",
-		);
-		await waitForParentContains(harness, "warning: Locked worktree is not tracked in registry", 30_000);
-		await waitForChildPiBooted(harness, firstId, 120_000);
+	assert.ok(
+		first.worktreePath.endsWith("0002"),
+		`expected new slot 0002, got ${first.worktreePath}`,
+	);
+	assert.ok(
+		(first.warnings ?? []).some((warning) =>
+			warning.includes("Locked worktree is not tracked in registry"),
+		),
+		"registry warnings should include stale lock warning",
+	);
+	await waitForParentContains(
+		harness,
+		"warning: Locked worktree is not tracked in registry",
+		30_000,
+	);
+	await waitForChildPiBooted(harness, firstId, 120_000);
 
-		const firstQuitSend = await callAgentSendTool(harness, firstId, "!/quit", 60_000);
-		assert.equal(firstQuitSend.payload.ok, true, `agent-send should succeed: ${JSON.stringify(firstQuitSend.payload)}`);
-		await callAgentSendTool(harness, firstId, "!/quit", 60_000);
-		await waitForAgent(harness, firstId, { terminal: true, timeoutMs: 180_000 });
-		await closeChildWindowAfterPrompt(harness, firstId);
+	const firstQuitSend = await callAgentSendTool(
+		harness,
+		firstId,
+		"!/quit",
+		60_000,
+	);
+	assert.equal(
+		firstQuitSend.payload.ok,
+		true,
+		`agent-send should succeed: ${JSON.stringify(firstQuitSend.payload)}`,
+	);
+	await callAgentSendTool(harness, firstId, "!/quit", 60_000);
+	await waitForAgent(harness, firstId, { terminal: true, timeoutMs: 180_000 });
+	await closeChildWindowAfterPrompt(harness, firstId);
 
-		const firstLockPath = join(first.worktreePath, ".pi", "active.lock");
-		if (await exists(firstLockPath)) {
-			await unlink(firstLockPath);
-		}
-		assert.equal(run("git", ["-C", first.worktreePath, "status", "--porcelain"]).stdout.trim(), "");
+	const firstLockPath = join(first.worktreePath, ".pi", "active.lock");
+	if (await exists(firstLockPath)) {
+		await unlink(firstLockPath);
+	}
+	assert.equal(
+		run("git", [
+			"-C",
+			first.worktreePath,
+			"status",
+			"--porcelain",
+		]).stdout.trim(),
+		"",
+	);
 
-		const second = await startAgentViaSlashCommand(harness, "reuse unlocked slot");
-		const secondId = second.id;
-		assert.equal(second.worktreePath, first.worktreePath, "expected worktree slot to be reused");
-		await waitForChildPiBooted(harness, secondId, 120_000);
+	const second = await startAgentViaSlashCommand(
+		harness,
+		"reuse unlocked slot",
+	);
+	const secondId = second.id;
+	assert.equal(
+		second.worktreePath,
+		first.worktreePath,
+		"expected worktree slot to be reused",
+	);
+	await waitForChildPiBooted(harness, secondId, 120_000);
 
-		const secondQuitSend = await callAgentSendTool(harness, secondId, "!/quit", 60_000);
-		assert.equal(secondQuitSend.payload.ok, true, `agent-send should succeed: ${JSON.stringify(secondQuitSend.payload)}`);
-		await callAgentSendTool(harness, secondId, "!/quit", 60_000);
-		await waitForAgent(harness, secondId, { terminal: true, timeoutMs: 180_000 });
-		await closeChildWindowAfterPrompt(harness, secondId);
-	},
-);
+	const secondQuitSend = await callAgentSendTool(
+		harness,
+		secondId,
+		"!/quit",
+		60_000,
+	);
+	assert.equal(
+		secondQuitSend.payload.ok,
+		true,
+		`agent-send should succeed: ${JSON.stringify(secondQuitSend.payload)}`,
+	);
+	await callAgentSendTool(harness, secondId, "!/quit", 60_000);
+	await waitForAgent(harness, secondId, { terminal: true, timeoutMs: 180_000 });
+	await closeChildWindowAfterPrompt(harness, secondId);
+});
 
-test(
-	"integration: concurrent multiple agents from one parent with distinct windows/worktrees",
-	{ timeout: TEST_TIMEOUT },
-	async (t) => {
-		if (!assertAuthOrSkip(t)) return;
+test("integration: concurrent multiple agents from one parent with distinct windows/worktrees", {
+	timeout: TEST_TIMEOUT,
+}, async (t) => {
+	if (!assertAuthOrSkip(t)) return;
 
-		const harness = await createHarness(t);
+	const harness = await createHarness(t);
 
-		const first = await startAgentViaSlashCommand(harness, "concurrent one");
-		const firstId = first.id;
+	const first = await startAgentViaSlashCommand(harness, "concurrent one");
+	const firstId = first.id;
 
-		const second = await startAgentViaSlashCommand(harness, "concurrent two", 180_000);
-		const secondId = second.id;
-		await waitForAgentCount(harness, 2, 180_000);
+	const second = await startAgentViaSlashCommand(
+		harness,
+		"concurrent two",
+		180_000,
+	);
+	const secondId = second.id;
+	await waitForAgentCount(harness, 2, 180_000);
 
-		const registry = await readRegistry(harness);
-		const a1 = registry.agents[firstId];
-		const a2 = registry.agents[secondId];
+	const registry = await readRegistry(harness);
+	const a1 = registry.agents[firstId];
+	const a2 = registry.agents[secondId];
 
-		assert.ok(a1 && a2, "both agents should exist in registry");
-		assert.notEqual(a1.worktreePath, a2.worktreePath, "concurrent agents should use different worktrees");
-		assert.notEqual(a1.tmuxWindowId, a2.tmuxWindowId, "concurrent agents should use different tmux windows");
-		assert.notEqual(a1.tmuxWindowIndex, a2.tmuxWindowIndex, "concurrent agents should use different tmux indices");
+	assert.ok(a1 && a2, "both agents should exist in registry");
+	assert.notEqual(
+		a1.worktreePath,
+		a2.worktreePath,
+		"concurrent agents should use different worktrees",
+	);
+	assert.notEqual(
+		a1.tmuxWindowId,
+		a2.tmuxWindowId,
+		"concurrent agents should use different tmux windows",
+	);
+	assert.notEqual(
+		a1.tmuxWindowIndex,
+		a2.tmuxWindowIndex,
+		"concurrent agents should use different tmux indices",
+	);
 
-		assert.equal(windowExists(harness, a1.tmuxWindowId), true, `${firstId} window should exist`);
-		assert.equal(windowExists(harness, a2.tmuxWindowId), true, `${secondId} window should exist`);
+	assert.equal(
+		windowExists(harness, a1.tmuxWindowId),
+		true,
+		`${firstId} window should exist`,
+	);
+	assert.equal(
+		windowExists(harness, a2.tmuxWindowId),
+		true,
+		`${secondId} window should exist`,
+	);
 
-		await sendParentCommand(harness, "/agents");
-		await waitForParentContains(harness, firstId, 30_000);
-		await waitForParentContains(harness, secondId, 30_000);
-		await waitForParentContains(harness, `${firstId}:`, 45_000);
-		await waitForParentContains(harness, `${secondId}:`, 45_000);
-		await waitForChildPiBooted(harness, firstId, 120_000);
-		await waitForChildPiBooted(harness, secondId, 120_000);
+	await sendParentCommand(harness, "/agents");
+	await waitForParentContains(harness, firstId, 30_000);
+	await waitForParentContains(harness, secondId, 30_000);
+	await waitForParentContains(harness, `${firstId}:`, 45_000);
+	await waitForParentContains(harness, `${secondId}:`, 45_000);
+	await waitForChildPiBooted(harness, firstId, 120_000);
+	await waitForChildPiBooted(harness, secondId, 120_000);
 
-		const quitA1 = await callAgentSendTool(harness, firstId, "!/quit", 60_000);
-		assert.equal(quitA1.payload.ok, true, `agent-send should succeed for ${firstId}: ${JSON.stringify(quitA1.payload)}`);
-		const quitA2 = await callAgentSendTool(harness, secondId, "!/quit", 60_000);
-		assert.equal(quitA2.payload.ok, true, `agent-send should succeed for ${secondId}: ${JSON.stringify(quitA2.payload)}`);
-		await callAgentSendTool(harness, secondId, "!/quit", 60_000);
+	const quitA1 = await callAgentSendTool(harness, firstId, "!/quit", 60_000);
+	assert.equal(
+		quitA1.payload.ok,
+		true,
+		`agent-send should succeed for ${firstId}: ${JSON.stringify(quitA1.payload)}`,
+	);
+	const quitA2 = await callAgentSendTool(harness, secondId, "!/quit", 60_000);
+	assert.equal(
+		quitA2.payload.ok,
+		true,
+		`agent-send should succeed for ${secondId}: ${JSON.stringify(quitA2.payload)}`,
+	);
+	await callAgentSendTool(harness, secondId, "!/quit", 60_000);
 
-		await waitForAgent(harness, firstId, { terminal: true, timeoutMs: 120_000 });
-		await waitForAgent(harness, secondId, { terminal: true, timeoutMs: 180_000 });
+	await waitForAgent(harness, firstId, { terminal: true, timeoutMs: 120_000 });
+	await waitForAgent(harness, secondId, { terminal: true, timeoutMs: 180_000 });
 
-		await waitForBacklogContains(harness, firstId, "Press any key to close this tmux window", 60_000);
-		await waitForBacklogContains(harness, secondId, "Press any key to close this tmux window", 60_000);
+	await waitForBacklogContains(
+		harness,
+		firstId,
+		"Press any key to close this tmux window",
+		60_000,
+	);
+	await waitForBacklogContains(
+		harness,
+		secondId,
+		"Press any key to close this tmux window",
+		60_000,
+	);
 
-		await closeChildWindowAfterPrompt(harness, firstId);
-		await closeChildWindowAfterPrompt(harness, secondId);
-	},
-);
+	await closeChildWindowAfterPrompt(harness, firstId);
+	await closeChildWindowAfterPrompt(harness, secondId);
+});
 
-test("integration: merge-lock serialization in finish script", { timeout: TEST_TIMEOUT }, async (t) => {
+test("integration: merge-lock serialization in finish script", {
+	timeout: TEST_TIMEOUT,
+}, async (t) => {
 	const rootDir = await mkdtemp(join(tmpdir(), "pi-side-merge-it-"));
 	const repoRoot = join(rootDir, "repo");
 	const wt1 = join(rootDir, "worktree-a1");
@@ -1027,7 +1367,9 @@ test("integration: merge-lock serialization in finish script", { timeout: TEST_T
 
 	await mkdir(repoRoot, { recursive: true });
 	run("git", ["init", "-b", "main"], { cwd: repoRoot });
-	run("git", ["config", "user.email", "integration@example.com"], { cwd: repoRoot });
+	run("git", ["config", "user.email", "integration@example.com"], {
+		cwd: repoRoot,
+	});
 	run("git", ["config", "user.name", "Integration Runner"], { cwd: repoRoot });
 
 	await writeFile(join(repoRoot, "README.md"), "merge lock fixture\n");
@@ -1123,9 +1465,12 @@ done
 	);
 	await chmod(finishScriptPath, 0o755);
 
-
-	run("git", ["worktree", "add", "-B", "side-agent/a-0001", wt1, "main"], { cwd: repoRoot });
-	run("git", ["worktree", "add", "-B", "side-agent/a-0002", wt2, "main"], { cwd: repoRoot });
+	run("git", ["worktree", "add", "-B", "side-agent/a-0001", wt1, "main"], {
+		cwd: repoRoot,
+	});
+	run("git", ["worktree", "add", "-B", "side-agent/a-0002", wt2, "main"], {
+		cwd: repoRoot,
+	});
 
 	await writeFile(join(wt1, "from-agent-1.txt"), "agent one\n");
 	run("git", ["add", "from-agent-1.txt"], { cwd: wt1 });
@@ -1150,10 +1495,21 @@ done
 		timeoutMs: 180_000,
 	});
 
-	const [firstResult, secondResult] = await Promise.all([firstPromise, secondPromise]);
+	const [firstResult, secondResult] = await Promise.all([
+		firstPromise,
+		secondPromise,
+	]);
 
-	assert.equal(firstResult.code, 0, `first finisher failed:\n${firstResult.stdout}\n${firstResult.stderr}`);
-	assert.equal(secondResult.code, 0, `second finisher failed:\n${secondResult.stdout}\n${secondResult.stderr}`);
+	assert.equal(
+		firstResult.code,
+		0,
+		`first finisher failed:\n${firstResult.stdout}\n${firstResult.stderr}`,
+	);
+	assert.equal(
+		secondResult.code,
+		0,
+		`second finisher failed:\n${secondResult.stdout}\n${secondResult.stderr}`,
+	);
 
 	const mergedLogs = `${firstResult.stdout}\n${secondResult.stdout}`;
 	assert.ok(
@@ -1161,11 +1517,28 @@ done
 		`expected lock wait message in outputs:\n--- first ---\n${firstResult.stdout}\n--- second ---\n${secondResult.stdout}`,
 	);
 
-	assert.equal(await exists(join(repoRoot, ".pi", "side-agents", "merge.lock")), false, "merge.lock should be released");
+	assert.equal(
+		await exists(join(repoRoot, ".pi", "side-agents", "merge.lock")),
+		false,
+		"merge.lock should be released",
+	);
 
-	const tree = run("git", ["-C", repoRoot, "ls-tree", "--name-only", "-r", "main"]).stdout;
-	assert.ok(tree.includes("from-agent-1.txt"), "main should contain agent-1 change");
-	assert.ok(tree.includes("from-agent-2.txt"), "main should contain agent-2 change");
+	const tree = run("git", [
+		"-C",
+		repoRoot,
+		"ls-tree",
+		"--name-only",
+		"-r",
+		"main",
+	]).stdout;
+	assert.ok(
+		tree.includes("from-agent-1.txt"),
+		"main should contain agent-1 change",
+	);
+	assert.ok(
+		tree.includes("from-agent-2.txt"),
+		"main should contain agent-2 change",
+	);
 });
 
 // =============================================================================
@@ -1199,85 +1572,140 @@ done
 // ---------------------------------------------------------------------------
 // Test 1 — agent-check response shapes via tool invocation.
 // ---------------------------------------------------------------------------
-test(
-	"integration: tool-contract — agent-check shapes: unknown id → ok:false, known agent → ok:true with all fields",
-	{ timeout: TEST_TIMEOUT },
-	async (t) => {
-		if (!assertAuthOrSkip(t)) return;
+test("integration: tool-contract — agent-check shapes: unknown id → ok:false, known agent → ok:true with all fields", {
+	timeout: TEST_TIMEOUT,
+}, async (t) => {
+	if (!assertAuthOrSkip(t)) return;
 
-		const harness = await createHarness(t);
+	const harness = await createHarness(t);
 
-		// — Unknown id -------------------------------------------------------
-		const unknownCheck = await callAgentCheckTool(harness, "a-9999", 60_000);
-		assert.equal(unknownCheck.payload.ok, false, `unknown id should return ok:false: ${JSON.stringify(unknownCheck.payload)}`);
-		assert.ok(typeof unknownCheck.payload.error === "string", "unknown id should return an error string");
-		assert.ok(
-			unknownCheck.payload.error.includes("a-9999"),
-			`error should include unknown id, got: ${unknownCheck.payload.error}`,
+	// — Unknown id -------------------------------------------------------
+	const unknownCheck = await callAgentCheckTool(harness, "a-9999", 60_000);
+	assert.equal(
+		unknownCheck.payload.ok,
+		false,
+		`unknown id should return ok:false: ${JSON.stringify(unknownCheck.payload)}`,
+	);
+	assert.ok(
+		typeof unknownCheck.payload.error === "string",
+		"unknown id should return an error string",
+	);
+	assert.ok(
+		unknownCheck.payload.error.includes("a-9999"),
+		`error should include unknown id, got: ${unknownCheck.payload.error}`,
+	);
+
+	// — Known agent -------------------------------------------------------
+	// Start one agent so we have a real registry entry to inspect.
+	const spawned = await startAgentViaSlashCommand(harness, "shape-audit smoke");
+	const agentId = spawned.id;
+
+	const knownCheck = await callAgentCheckTool(harness, agentId, 60_000);
+	assert.equal(
+		knownCheck.payload.ok,
+		true,
+		`known id should return ok:true: ${JSON.stringify(knownCheck.payload)}`,
+	);
+	assert.ok(
+		knownCheck.payload.agent,
+		"agent-check success should include agent object",
+	);
+	assert.ok(
+		Array.isArray(knownCheck.payload.backlog),
+		"agent-check success should include backlog array",
+	);
+
+	const checkedAgent = knownCheck.payload.agent;
+	assert.equal(checkedAgent.id, agentId);
+	assert.equal(checkedAgent.branch, spawned.branch);
+	assert.ok(
+		typeof checkedAgent.status === "string",
+		"agent.status should be present",
+	);
+	assert.ok(
+		typeof checkedAgent.task === "string",
+		"agent.task should be present",
+	);
+	assert.ok(
+		typeof checkedAgent.startedAt === "string",
+		"agent.startedAt should be present",
+	);
+	assert.ok(
+		Array.isArray(checkedAgent.warnings),
+		"agent.warnings should be an array",
+	);
+	assert.ok(
+		typeof checkedAgent.tmuxWindowId === "string",
+		"agent.tmuxWindowId should be a string",
+	);
+	assert.ok(
+		typeof checkedAgent.tmuxWindowIndex === "number",
+		"agent.tmuxWindowIndex should be a number",
+	);
+	assert.ok(
+		typeof checkedAgent.worktreePath === "string",
+		"agent.worktreePath should be present",
+	);
+
+	// Verify the tmux fields match what the registry recorded
+	const reg = await readRegistry(harness);
+	const rec = reg.agents[agentId];
+	assert.ok(rec, `${agentId} must exist in registry`);
+	assert.equal(
+		rec.tmuxWindowId,
+		spawned.tmuxWindowId,
+		"registry tmuxWindowId should match spawned value",
+	);
+	assert.equal(
+		rec.branch,
+		spawned.branch,
+		"registry branch should follow naming convention",
+	);
+
+	// Cleanup — wait for child Pi to boot before sending !/quit so the
+	// interrupt is delivered while Pi is at an interactive prompt.
+	// Without this, C-c arrives before Pi is ready and is discarded,
+	// leaving the agent running until waitForAgent(terminal) times out.
+	await waitForChildPiBooted(harness, agentId, 120_000);
+
+	// ── Validate backlog captures visible pane content, not just footer ──
+	// After the child has booted, agent-check backlog should contain
+	// meaningful content from the visible tmux pane (e.g. "pi v" version
+	// string), not just TUI footer/status bar redraws.
+	const bootedCheck = await callAgentCheckTool(harness, agentId, 60_000);
+	assert.equal(
+		bootedCheck.payload.ok,
+		true,
+		"agent-check after boot should succeed",
+	);
+	assert.ok(
+		Array.isArray(bootedCheck.payload.backlog),
+		"backlog should be an array",
+	);
+	if (bootedCheck.payload.backlog.length > 0) {
+		const backlogText = bootedCheck.payload.backlog.join("\n");
+		// The backlog should NOT be entirely separator/footer lines.
+		// At minimum, after boot we expect some content beyond just
+		// ── separators and status bar lines.
+		const separatorRe = /^[-─—_=]{5,}$/u;
+		const nonSeparatorLines = bootedCheck.payload.backlog.filter(
+			(line) => !separatorRe.test(line.trim()),
 		);
+		assert.ok(
+			nonSeparatorLines.length > 0,
+			`backlog should contain non-separator content after boot, got: ${backlogText}`,
+		);
+	}
 
-		// — Known agent -------------------------------------------------------
-		// Start one agent so we have a real registry entry to inspect.
-		const spawned = await startAgentViaSlashCommand(harness, "shape-audit smoke");
-		const agentId = spawned.id;
-
-		const knownCheck = await callAgentCheckTool(harness, agentId, 60_000);
-		assert.equal(knownCheck.payload.ok, true, `known id should return ok:true: ${JSON.stringify(knownCheck.payload)}`);
-		assert.ok(knownCheck.payload.agent, "agent-check success should include agent object");
-		assert.ok(Array.isArray(knownCheck.payload.backlog), "agent-check success should include backlog array");
-
-		const checkedAgent = knownCheck.payload.agent;
-		assert.equal(checkedAgent.id, agentId);
-		assert.equal(checkedAgent.branch, spawned.branch);
-		assert.ok(typeof checkedAgent.status === "string", "agent.status should be present");
-		assert.ok(typeof checkedAgent.task === "string", "agent.task should be present");
-		assert.ok(typeof checkedAgent.startedAt === "string", "agent.startedAt should be present");
-		assert.ok(Array.isArray(checkedAgent.warnings), "agent.warnings should be an array");
-		assert.ok(typeof checkedAgent.tmuxWindowId === "string", "agent.tmuxWindowId should be a string");
-		assert.ok(typeof checkedAgent.tmuxWindowIndex === "number", "agent.tmuxWindowIndex should be a number");
-		assert.ok(typeof checkedAgent.worktreePath === "string", "agent.worktreePath should be present");
-
-		// Verify the tmux fields match what the registry recorded
-		const reg = await readRegistry(harness);
-		const rec = reg.agents[agentId];
-		assert.ok(rec, `${agentId} must exist in registry`);
-		assert.equal(rec.tmuxWindowId, spawned.tmuxWindowId, "registry tmuxWindowId should match spawned value");
-		assert.equal(rec.branch, spawned.branch, "registry branch should follow naming convention");
-
-		// Cleanup — wait for child Pi to boot before sending !/quit so the
-		// interrupt is delivered while Pi is at an interactive prompt.
-		// Without this, C-c arrives before Pi is ready and is discarded,
-		// leaving the agent running until waitForAgent(terminal) times out.
-		await waitForChildPiBooted(harness, agentId, 120_000);
-
-		// ── Validate backlog captures visible pane content, not just footer ──
-		// After the child has booted, agent-check backlog should contain
-		// meaningful content from the visible tmux pane (e.g. "pi v" version
-		// string), not just TUI footer/status bar redraws.
-		const bootedCheck = await callAgentCheckTool(harness, agentId, 60_000);
-		assert.equal(bootedCheck.payload.ok, true, "agent-check after boot should succeed");
-		assert.ok(Array.isArray(bootedCheck.payload.backlog), "backlog should be an array");
-		if (bootedCheck.payload.backlog.length > 0) {
-			const backlogText = bootedCheck.payload.backlog.join("\n");
-			// The backlog should NOT be entirely separator/footer lines.
-			// At minimum, after boot we expect some content beyond just
-			// ── separators and status bar lines.
-			const separatorRe = /^[-─—_=]{5,}$/u;
-			const nonSeparatorLines = bootedCheck.payload.backlog.filter(
-				(line) => !separatorRe.test(line.trim()),
-			);
-			assert.ok(
-				nonSeparatorLines.length > 0,
-				`backlog should contain non-separator content after boot, got: ${backlogText}`,
-			);
-		}
-
-		const quitSend = await callAgentSendTool(harness, agentId, "!/quit", 60_000);
-		assert.equal(quitSend.payload.ok, true, `agent-send should succeed: ${JSON.stringify(quitSend.payload)}`);
-		await waitForAgent(harness, agentId, { terminal: true, timeoutMs: 120_000 });
-		await closeChildWindowAfterPrompt(harness, agentId);
-	},
-);
+	const quitSend = await callAgentSendTool(harness, agentId, "!/quit", 60_000);
+	assert.equal(
+		quitSend.payload.ok,
+		true,
+		`agent-send should succeed: ${JSON.stringify(quitSend.payload)}`,
+	);
+	await waitForAgent(harness, agentId, { terminal: true, timeoutMs: 120_000 });
+	await closeChildWindowAfterPrompt(harness, agentId);
+});
 
 // ---------------------------------------------------------------------------
 // Test 2 — agent-start tool execute returns { ok: true } with all required
@@ -1310,109 +1738,156 @@ test(
 // Bug fixed: agent-start execute() returned { id, tmuxWindowId, ... } without
 // an ok field.  The LLM tool contract requires { ok: true, ... } on success.
 // ---------------------------------------------------------------------------
-test(
-	"integration: tool-call — agent-start execute returns { ok: true } with all required fields; agent-wait-any returns error for success-pruned id",
-	{ timeout: TEST_TIMEOUT },
-	async (t) => {
-		if (!assertAuthOrSkip(t)) return;
+test("integration: tool-call — agent-start execute returns { ok: true } with all required fields; agent-wait-any returns error for success-pruned id", {
+	timeout: TEST_TIMEOUT,
+}, async (t) => {
+	if (!assertAuthOrSkip(t)) return;
 
-		const harness = await createHarness(t);
+	const harness = await createHarness(t);
 
-		// Frame the request as a natural user need rather than a raw tool-call
-		// directive.  Models respond more reliably when the prompt maps clearly
-		// to the tool's purpose ("start a side agent for me") than when
-		// given a mechanical instruction ("call tool X with arg Y").
-		// The agent is told to /quit immediately to keep the test short.
-		const beforeIds = await snapshotAgentIds(harness);
-		await sendParentCommand(
-			harness,
-			`Please start a new side agent worker for me. The agent's task is: "integration-test worker — immediately type /quit to exit". Use the agent-start tool to create the agent now.`,
-		);
+	// Frame the request as a natural user need rather than a raw tool-call
+	// directive.  Models respond more reliably when the prompt maps clearly
+	// to the tool's purpose ("start a side agent for me") than when
+	// given a mechanical instruction ("call tool X with arg Y").
+	// The agent is told to /quit immediately to keep the test short.
+	const beforeIds = await snapshotAgentIds(harness);
+	await sendParentCommand(
+		harness,
+		`Please start a new side agent worker for me. The agent's task is: "integration-test worker — immediately type /quit to exit". Use the agent-start tool to create the agent now.`,
+	);
 
-		// Wait for the agent to appear in the registry with all tmux and
-		// worktree fields populated — proves the tool's side-effects ran.
-		const spawned = await waitForNewSpawnedAgent(harness, beforeIds, 180_000);
-		const agentId = spawned.id;
+	// Wait for the agent to appear in the registry with all tmux and
+	// worktree fields populated — proves the tool's side-effects ran.
+	const spawned = await waitForNewSpawnedAgent(harness, beforeIds, 180_000);
+	const agentId = spawned.id;
 
-		// Read the parent session JSONL for the agent-start tool-result entry.
-		// The JSONL records exactly what execute() returned to the LLM.
-		const startResult = await waitForToolResultInSession(harness, "agent-start", 60_000);
-		const sp = startResult.payload;
+	// Read the parent session JSONL for the agent-start tool-result entry.
+	// The JSONL records exactly what execute() returned to the LLM.
+	const startResult = await waitForToolResultInSession(
+		harness,
+		"agent-start",
+		60_000,
+	);
+	const sp = startResult.payload;
 
-		// — Bug-fix assertion: ok: true must be present ——————————————————————
-		assert.strictEqual(sp.ok, true, `agent-start tool result must have ok: true — got: ${JSON.stringify(sp)}`);
+	// — Bug-fix assertion: ok: true must be present ——————————————————————
+	assert.strictEqual(
+		sp.ok,
+		true,
+		`agent-start tool result must have ok: true — got: ${JSON.stringify(sp)}`,
+	);
 
-		// — Required field shapes ——————————————————————————————————————————————
-		assert.strictEqual(sp.id, agentId, `tool result id should match spawned id, got: ${sp.id}`);
-		assert.ok(
-			typeof sp.tmuxWindowId === "string" && sp.tmuxWindowId.startsWith("@"),
-			`tmuxWindowId must be a "@N" string, got: ${sp.tmuxWindowId}`,
-		);
-		assert.ok(typeof sp.tmuxWindowIndex === "number", `tmuxWindowIndex must be a number, got: ${sp.tmuxWindowIndex}`);
-		assert.ok(
-			typeof sp.worktreePath === "string" && sp.worktreePath.length > 0,
-			`worktreePath must be a non-empty string, got: ${sp.worktreePath}`,
-		);
-		assert.strictEqual(sp.branch, `side-agent/${sp.id}`, `branch must be side-agent/<id>, got: ${sp.branch}`);
-		assert.ok(Array.isArray(sp.warnings), `warnings must be an array, got: ${JSON.stringify(sp.warnings)}`);
+	// — Required field shapes ——————————————————————————————————————————————
+	assert.strictEqual(
+		sp.id,
+		agentId,
+		`tool result id should match spawned id, got: ${sp.id}`,
+	);
+	assert.ok(
+		typeof sp.tmuxWindowId === "string" && sp.tmuxWindowId.startsWith("@"),
+		`tmuxWindowId must be a "@N" string, got: ${sp.tmuxWindowId}`,
+	);
+	assert.ok(
+		typeof sp.tmuxWindowIndex === "number",
+		`tmuxWindowIndex must be a number, got: ${sp.tmuxWindowIndex}`,
+	);
+	assert.ok(
+		typeof sp.worktreePath === "string" && sp.worktreePath.length > 0,
+		`worktreePath must be a non-empty string, got: ${sp.worktreePath}`,
+	);
+	assert.strictEqual(
+		sp.branch,
+		`side-agent/${sp.id}`,
+		`branch must be side-agent/<id>, got: ${sp.branch}`,
+	);
+	assert.ok(
+		Array.isArray(sp.warnings),
+		`warnings must be an array, got: ${JSON.stringify(sp.warnings)}`,
+	);
 
-		// — External-effect cross-checks: tool result fields refer to real resources —
-		// The tmuxWindowId in the tool result must be a live window in THIS harness's
-		// tmux server.  If execute() had returned a fabricated id or crashed before
-		// creating the window, this assertion would catch it.
-		assert.ok(
-			windowExists(harness, sp.tmuxWindowId),
-			`tmuxWindowId "${sp.tmuxWindowId}" from tool result must be a real live tmux window in the harness`,
-		);
+	// — External-effect cross-checks: tool result fields refer to real resources —
+	// The tmuxWindowId in the tool result must be a live window in THIS harness's
+	// tmux server.  If execute() had returned a fabricated id or crashed before
+	// creating the window, this assertion would catch it.
+	assert.ok(
+		windowExists(harness, sp.tmuxWindowId),
+		`tmuxWindowId "${sp.tmuxWindowId}" from tool result must be a real live tmux window in the harness`,
+	);
 
-		// Registry fields must match tool-result fields: the tool wrote them
-		// atomically, so any disagreement indicates a serialisation bug.
-		const reg = await readRegistry(harness);
-		const rec = reg.agents[agentId];
-		assert.ok(rec, `${agentId} must exist in registry`);
-		assert.strictEqual(rec.tmuxWindowId, sp.tmuxWindowId, "registry tmuxWindowId must match tool result");
-		assert.strictEqual(rec.branch, sp.branch, "registry branch must match tool result");
-		assert.strictEqual(rec.worktreePath, sp.worktreePath, "registry worktreePath must match tool result");
-		assert.strictEqual(rec.tmuxWindowId, spawned.tmuxWindowId, "spawned tmuxWindowId must match tool result");
+	// Registry fields must match tool-result fields: the tool wrote them
+	// atomically, so any disagreement indicates a serialisation bug.
+	const reg = await readRegistry(harness);
+	const rec = reg.agents[agentId];
+	assert.ok(rec, `${agentId} must exist in registry`);
+	assert.strictEqual(
+		rec.tmuxWindowId,
+		sp.tmuxWindowId,
+		"registry tmuxWindowId must match tool result",
+	);
+	assert.strictEqual(
+		rec.branch,
+		sp.branch,
+		"registry branch must match tool result",
+	);
+	assert.strictEqual(
+		rec.worktreePath,
+		sp.worktreePath,
+		"registry worktreePath must match tool result",
+	);
+	assert.strictEqual(
+		rec.tmuxWindowId,
+		spawned.tmuxWindowId,
+		"spawned tmuxWindowId must match tool result",
+	);
 
-		// — agent-wait-any behavior after successful auto-prune ————————————
-		// Terminate the agent, wait for registry cleanup, then ask the LLM to call
-		// agent-wait-any. Because success records are removed, this should return
-		// { ok: false, error } quickly instead of hanging.
-		await waitForChildPiBooted(harness, agentId, 120_000);
-		const quitSend = await callAgentSendTool(harness, agentId, "!/quit", 60_000);
-		assert.equal(quitSend.payload.ok, true, `agent-send should succeed: ${JSON.stringify(quitSend.payload)}`);
-		await waitForAgentRemoved(harness, agentId, 120_000);
+	// — agent-wait-any behavior after successful auto-prune ————————————
+	// Terminate the agent, wait for registry cleanup, then ask the LLM to call
+	// agent-wait-any. Because success records are removed, this should return
+	// { ok: false, error } quickly instead of hanging.
+	await waitForChildPiBooted(harness, agentId, 120_000);
+	const quitSend = await callAgentSendTool(harness, agentId, "!/quit", 60_000);
+	assert.equal(
+		quitSend.payload.ok,
+		true,
+		`agent-send should succeed: ${JSON.stringify(quitSend.payload)}`,
+	);
+	await waitForAgentRemoved(harness, agentId, 120_000);
 
-		await sendParentCommand(
-			harness,
-			`Agent ${agentId} finished and may already be cleaned up. Call the agent-wait-any tool with ids: ["${agentId}"] and report the exact tool response.`,
-		);
+	await sendParentCommand(
+		harness,
+		`Agent ${agentId} finished and may already be cleaned up. Call the agent-wait-any tool with ids: ["${agentId}"] and report the exact tool response.`,
+	);
 
-		const waitAnyResult = await waitFor(
-			"agent-wait-any error result in parent session",
-			async () => {
-				const entries = await readParentSessionEntries(harness);
-				const results = extractToolResultPayloads(entries, "agent-wait-any");
-				const failure = results.find((r) => r.payload.ok === false);
-				return failure || false;
-			},
-			{ timeoutMs: 90_000, intervalMs: 500 },
-		);
+	const waitAnyResult = await waitFor(
+		"agent-wait-any error result in parent session",
+		async () => {
+			const entries = await readParentSessionEntries(harness);
+			const results = extractToolResultPayloads(entries, "agent-wait-any");
+			const failure = results.find((r) => r.payload.ok === false);
+			return failure || false;
+		},
+		{ timeoutMs: 90_000, intervalMs: 500 },
+	);
 
-		const wp = waitAnyResult.payload;
-		assert.strictEqual(wp.ok, false, `agent-wait-any should fail once id is pruned, got: ${JSON.stringify(wp)}`);
-		assert.ok(typeof wp.error === "string", `error must be a string, got: ${typeof wp.error}`);
-		assert.ok(
-			wp.error.toLowerCase().includes("unknown") ||
-				wp.error.toLowerCase().includes("disappear") ||
-				wp.error.includes(agentId),
-			`error should explain missing/pruned id, got: ${wp.error}`,
-		);
+	const wp = waitAnyResult.payload;
+	assert.strictEqual(
+		wp.ok,
+		false,
+		`agent-wait-any should fail once id is pruned, got: ${JSON.stringify(wp)}`,
+	);
+	assert.ok(
+		typeof wp.error === "string",
+		`error must be a string, got: ${typeof wp.error}`,
+	);
+	assert.ok(
+		wp.error.toLowerCase().includes("unknown") ||
+			wp.error.toLowerCase().includes("disappear") ||
+			wp.error.includes(agentId),
+		`error should explain missing/pruned id, got: ${wp.error}`,
+	);
 
-		await closeChildWindowAfterPrompt(harness, agentId);
-	},
-);
+	await closeChildWindowAfterPrompt(harness, agentId);
+});
 
 // ---------------------------------------------------------------------------
 // Test 3 — agent-wait-any fails fast on unknown id.
@@ -1443,69 +1918,75 @@ test(
 // for ids that would never appear in the registry.  After the fix, the first
 // pass detects unknown ids and returns { ok: false, error } immediately.
 // ---------------------------------------------------------------------------
-test(
-	"integration: tool-call — agent-wait-any fails fast on unknown id: ok:false within 3 s of tool call",
-	{ timeout: TEST_TIMEOUT },
-	async (t) => {
-		if (!assertAuthOrSkip(t)) return;
+test("integration: tool-call — agent-wait-any fails fast on unknown id: ok:false within 3 s of tool call", {
+	timeout: TEST_TIMEOUT,
+}, async (t) => {
+	if (!assertAuthOrSkip(t)) return;
 
-		const harness = await createHarness(t);
+	const harness = await createHarness(t);
 
-		// Wall-clock anchor: capture time before the prompt is sent to Pi.
-		// No agents have been started so the registry is empty — a-9999 is
-		// guaranteed unknown.
-		const wallClockStart = Date.now();
+	// Wall-clock anchor: capture time before the prompt is sent to Pi.
+	// No agents have been started so the registry is empty — a-9999 is
+	// guaranteed unknown.
+	const wallClockStart = Date.now();
 
-		// Frame the request as a natural status-check need so the model reliably
-		// reaches for the agent-wait-any tool rather than responding in text.
-		await sendParentCommand(
-			harness,
-			`Please check whether agent a-9999 has finished. Use the agent-wait-any tool with ids: ["a-9999"] and report what it returns.`,
-		);
+	// Frame the request as a natural status-check need so the model reliably
+	// reaches for the agent-wait-any tool rather than responding in text.
+	await sendParentCommand(
+		harness,
+		`Please check whether agent a-9999 has finished. Use the agent-wait-any tool with ids: ["a-9999"] and report what it returns.`,
+	);
 
-		// Wait for the tool-result entry to appear in the session JSONL.
-		const result = await waitForToolResultInSession(harness, "agent-wait-any", 90_000);
-		const { payload, entry: resultEntry } = result;
+	// Wait for the tool-result entry to appear in the session JSONL.
+	const result = await waitForToolResultInSession(
+		harness,
+		"agent-wait-any",
+		90_000,
+	);
+	const { payload, entry: resultEntry } = result;
 
-		// — Correct error shape ———————————————————————————————————————————————
-		assert.strictEqual(
-			payload.ok,
-			false,
-			`agent-wait-any with unknown id must return ok: false, got: ${JSON.stringify(payload)}`,
-		);
-		assert.ok(typeof payload.error === "string", `error must be a string, got: ${typeof payload.error}`);
+	// — Correct error shape ———————————————————————————————————————————————
+	assert.strictEqual(
+		payload.ok,
+		false,
+		`agent-wait-any with unknown id must return ok: false, got: ${JSON.stringify(payload)}`,
+	);
+	assert.ok(
+		typeof payload.error === "string",
+		`error must be a string, got: ${typeof payload.error}`,
+	);
+	assert.ok(
+		payload.error.toLowerCase().includes("a-9999") ||
+			payload.error.toLowerCase().includes("unknown"),
+		`error should mention the unknown id or "unknown", got: "${payload.error}"`,
+	);
+
+	// — (b) JSONL timestamp delta: isolates execute() latency from LLM RTT —
+	// Before the fix, even a single wasted 1 s poll would push the delta above
+	// 1 s; after the fix the execute() path is synchronous and returns in < ms.
+	const allEntries = await readParentSessionEntries(harness);
+	const callEntry = findAssistantToolCallEntry(allEntries, "agent-wait-any");
+	if (callEntry) {
+		const callTs = new Date(callEntry.entry.timestamp).getTime();
+		const resultTs = new Date(resultEntry.timestamp).getTime();
+		const deltaMs = resultTs - callTs;
 		assert.ok(
-			payload.error.toLowerCase().includes("a-9999") || payload.error.toLowerCase().includes("unknown"),
-			`error should mention the unknown id or "unknown", got: "${payload.error}"`,
+			deltaMs < 3_000,
+			`agent-wait-any fail-fast: JSONL delta from toolCall to toolResult was ${deltaMs} ms (must be < 3 s). ` +
+				"Without the fix the function would have polled indefinitely.",
 		);
+	}
 
-		// — (b) JSONL timestamp delta: isolates execute() latency from LLM RTT —
-		// Before the fix, even a single wasted 1 s poll would push the delta above
-		// 1 s; after the fix the execute() path is synchronous and returns in < ms.
-		const allEntries = await readParentSessionEntries(harness);
-		const callEntry = findAssistantToolCallEntry(allEntries, "agent-wait-any");
-		if (callEntry) {
-			const callTs = new Date(callEntry.entry.timestamp).getTime();
-			const resultTs = new Date(resultEntry.timestamp).getTime();
-			const deltaMs = resultTs - callTs;
-			assert.ok(
-				deltaMs < 3_000,
-				`agent-wait-any fail-fast: JSONL delta from toolCall to toolResult was ${deltaMs} ms (must be < 3 s). ` +
-					"Without the fix the function would have polled indefinitely.",
-			);
-		}
-
-		// — (a) Wall-clock guard: total time from prompt send to tool result ——
-		// 60 s gives generous room for LLM network latency while being impossible
-		// to satisfy if the tool were stuck in a 1 s polling loop.
-		const wallClockElapsedMs = Date.now() - wallClockStart;
-		assert.ok(
-			wallClockElapsedMs < 60_000,
-			`agent-wait-any fail-fast: wall-clock from prompt to tool result was ${wallClockElapsedMs} ms. ` +
-				"Exceeds 60 s — suggests the tool was polling instead of returning immediately.",
-		);
-	},
-);
+	// — (a) Wall-clock guard: total time from prompt send to tool result ——
+	// 60 s gives generous room for LLM network latency while being impossible
+	// to satisfy if the tool were stuck in a 1 s polling loop.
+	const wallClockElapsedMs = Date.now() - wallClockStart;
+	assert.ok(
+		wallClockElapsedMs < 60_000,
+		`agent-wait-any fail-fast: wall-clock from prompt to tool result was ${wallClockElapsedMs} ms. ` +
+			"Exceeds 60 s — suggests the tool was polling instead of returning immediately.",
+	);
+});
 
 // ---------------------------------------------------------------------------
 // Test 4 — agent-send !text: C-c interrupt + follow-up text both land in the
@@ -1523,43 +2004,66 @@ test(
 // arrived, the text was dropped or misrouted.  Removing the sleep reproduces
 // the race; the test would time out on waitForBacklogContains.
 // ---------------------------------------------------------------------------
-test(
-	"integration: agent-send !text — C-c interrupt + unique follow-up token both arrive in child backlog",
-	{ timeout: TEST_TIMEOUT },
-	async (t) => {
-		if (!assertAuthOrSkip(t)) return;
+test("integration: agent-send !text — C-c interrupt + unique follow-up token both arrive in child backlog", {
+	timeout: TEST_TIMEOUT,
+}, async (t) => {
+	if (!assertAuthOrSkip(t)) return;
 
-		const harness = await createHarness(t);
+	const harness = await createHarness(t);
 
-		const started = await startAgentViaSlashCommand(harness, "interrupt follow-up test");
-		const agentId = started.id;
-		await waitForChildPiBooted(harness, agentId, 120_000);
+	const started = await startAgentViaSlashCommand(
+		harness,
+		"interrupt follow-up test",
+	);
+	const agentId = started.id;
+	await waitForChildPiBooted(harness, agentId, 120_000);
 
-		// Step 1: plain send — confirm the basic send path works end-to-end.
-		// A unique token avoids false-positive matches from prior test runs.
-		const plainToken = `plain-send-${Date.now()}`;
-		const plainSend = await callAgentSendTool(harness, agentId, plainToken, 60_000);
-		assert.equal(plainSend.payload.ok, true, `plain agent-send should succeed: ${JSON.stringify(plainSend.payload)}`);
-		await waitForBacklogContains(harness, agentId, plainToken, 60_000);
+	// Step 1: plain send — confirm the basic send path works end-to-end.
+	// A unique token avoids false-positive matches from prior test runs.
+	const plainToken = `plain-send-${Date.now()}`;
+	const plainSend = await callAgentSendTool(
+		harness,
+		agentId,
+		plainToken,
+		60_000,
+	);
+	assert.equal(
+		plainSend.payload.ok,
+		true,
+		`plain agent-send should succeed: ${JSON.stringify(plainSend.payload)}`,
+	);
+	await waitForBacklogContains(harness, agentId, plainToken, 60_000);
 
-		// Step 2: interrupt + follow-up text using the ! prefix.
-		// This exercises the race-condition fix: C-c → sleep(300 ms) → send text.
-		// The unique token is generated after Step 1 completes so timestamps differ.
-		const interruptToken = `after-interrupt-${Date.now()}`;
-		const interruptSend = await callAgentSendTool(harness, agentId, `!${interruptToken}`, 60_000);
-		assert.equal(interruptSend.payload.ok, true, `interrupt agent-send should succeed: ${JSON.stringify(interruptSend.payload)}`);
+	// Step 2: interrupt + follow-up text using the ! prefix.
+	// This exercises the race-condition fix: C-c → sleep(300 ms) → send text.
+	// The unique token is generated after Step 1 completes so timestamps differ.
+	const interruptToken = `after-interrupt-${Date.now()}`;
+	const interruptSend = await callAgentSendTool(
+		harness,
+		agentId,
+		`!${interruptToken}`,
+		60_000,
+	);
+	assert.equal(
+		interruptSend.payload.ok,
+		true,
+		`interrupt agent-send should succeed: ${JSON.stringify(interruptSend.payload)}`,
+	);
 
-		// The follow-up token MUST appear in the child's real backlog.log file.
-		// Without the 300 ms sleep the token can be dropped in the interrupt-
-		// handler race; this assertion would time out, catching the regression.
-		await waitForBacklogContains(harness, agentId, interruptToken, 60_000);
+	// The follow-up token MUST appear in the child's real backlog.log file.
+	// Without the 300 ms sleep the token can be dropped in the interrupt-
+	// handler race; this assertion would time out, catching the regression.
+	await waitForBacklogContains(harness, agentId, interruptToken, 60_000);
 
-		// Step 3: cleanup — bare "!" (interrupt-only, no text) sends /quit.
-		// The bare-interrupt path skips the 300 ms sleep; this confirms that the
-		// no-follow-up branch is handled cleanly (no dangling send, no extra sleep).
-		const quitSend = await callAgentSendTool(harness, agentId, "!/quit", 60_000);
-		assert.equal(quitSend.payload.ok, true, `quit agent-send should succeed: ${JSON.stringify(quitSend.payload)}`);
-		await waitForAgent(harness, agentId, { terminal: true, timeoutMs: 120_000 });
-		await closeChildWindowAfterPrompt(harness, agentId);
-	},
-);
+	// Step 3: cleanup — bare "!" (interrupt-only, no text) sends /quit.
+	// The bare-interrupt path skips the 300 ms sleep; this confirms that the
+	// no-follow-up branch is handled cleanly (no dangling send, no extra sleep).
+	const quitSend = await callAgentSendTool(harness, agentId, "!/quit", 60_000);
+	assert.equal(
+		quitSend.payload.ok,
+		true,
+		`quit agent-send should succeed: ${JSON.stringify(quitSend.payload)}`,
+	);
+	await waitForAgent(harness, agentId, { terminal: true, timeoutMs: 120_000 });
+	await closeChildWindowAfterPrompt(harness, agentId);
+});
