@@ -20,9 +20,8 @@ import test, { after, before } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const PROJECT_ROOT = resolve(process.cwd());
-const EXTENSION_SOURCE = resolve(PROJECT_ROOT, "extensions/side-agents.ts");
-const MODEL_SPEC =
-	process.env.PI_SIDE_IT_MODEL ?? "openai-codex/gpt-5.1-codex-mini";
+const EXTENSION_SOURCE = resolve(PROJECT_ROOT, "extensions/side-agents/index.ts");
+const MODEL_SPEC = "aihubmix-am/cc-minimax-m2.7-highspeed";
 const AUTH_SOURCE = join(homedir(), ".pi", "agent", "auth.json");
 const TEST_TIMEOUT = Number(process.env.PI_SIDE_IT_TIMEOUT_MS ?? 240_000);
 
