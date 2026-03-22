@@ -37,7 +37,7 @@
 		"biomelint": "biome lint --write --colors=off --max-diagnostics=0",
 		"biomecheck": "biome check --write --colors=off --max-diagnostics=0",
 		"test:integration": "node --test --test-concurrency=1 tests/integration/side-agents.integration.test.mjs",
-		"test:extensions": "bun test extensions/**/*.test.ts"
+		"test:extensions": "bun test --bail=1 --only-failures extensions/**/*.test.ts"
 	},
 	"peerDependencies": {
 		"@mariozechner/pi-ai": "*",
