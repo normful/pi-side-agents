@@ -1,14 +1,11 @@
 import { promises as fs } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { atomicWrite, ensureDir, readJsonFile } from "./fs.js";
 import type { RegistryFile } from "./registry.js";
 import {
 	isPidAlive,
-	listWorktreeSlots,
-	type OrphanWorktreeLock,
-	type OrphanWorktreeLockScan,
 	parseOptionalPid,
-	type WorktreeSlot,
 } from "./slug.js";
 import {
 	gitRunOpts,
@@ -62,16 +59,69 @@ export function listRegisteredWorktrees(repoRoot: string): Set<string> {
 	return set;
 }
 
+export type WorktreeSlot = {
+	index: number;
+	path: string;
+};
+
+export type OrphanWorktreeLock = {
+	worktreePath: string;
+	lockPath: string;
+	lockAgentId?: string;
+	lockPid?: number;
+	lockTmuxWindowId?: string;
+	blockers: string[];
+};
+
+export type OrphanWorktreeLockScan = {
+	reclaimable: OrphanWorktreeLock[];
+	blocked: OrphanWorktreeLock[];
+};
+
 export async function scanOrphanWorktreeLocks(
 	repoRoot: string,
 	registry: RegistryFile,
 ): Promise<OrphanWorktreeLockScan> {
-	const slots = await listWorktreeSlots(repoRoot);
+	// Use git worktree list --porcelain to find all worktrees
+	const result = runOrThrow(
+		"git",
+		["-C", repoRoot, "worktree", "list", "--porcelain"],
+		gitRunOpts,
+	);
+
+	// Parse the output to find worktrees with side-agent/ branches
+	const worktrees: Array<{ path: string; branch: string | null }> = [];
+	let currentWorktree: { path: string; branch: string | null } | null = null;
+
+	for (const line of result.stdout.split(/\r?\n/)) {
+		if (line.startsWith("worktree ")) {
+			if (currentWorktree) {
+				worktrees.push(currentWorktree);
+			}
+			currentWorktree = {
+				path: line.slice("worktree ".length).trim(),
+				branch: null,
+			};
+		} else if (line.startsWith("branch ")) {
+			if (currentWorktree) {
+				currentWorktree.branch = line.slice("branch ".length).trim();
+			}
+		}
+	}
+	if (currentWorktree) {
+		worktrees.push(currentWorktree);
+	}
+
+	// Filter to side-agent/ worktrees
+	const sideAgentWorktrees = worktrees.filter(
+		(wt) => wt.branch && wt.branch.startsWith("refs/heads/side-agent/"),
+	);
+
 	const reclaimable: OrphanWorktreeLock[] = [];
 	const blocked: OrphanWorktreeLock[] = [];
 
-	for (const slot of slots) {
-		const lockPath = join(slot.path, ".pi", "active.lock");
+	for (const wt of sideAgentWorktrees) {
+		const lockPath = join(wt.path, ".pi", "active.lock");
 		if (!(await readJsonFile<Record<string, unknown>>(lockPath))) continue;
 
 		const raw = (await readJsonFile<Record<string, unknown>>(lockPath)) ?? {};
@@ -94,7 +144,7 @@ export async function scanOrphanWorktreeLocks(
 		}
 
 		const candidate: OrphanWorktreeLock = {
-			worktreePath: slot.path,
+			worktreePath: wt.path,
 			lockPath,
 			blockers,
 			...(lockAgentId !== undefined && { lockAgentId }),
@@ -189,7 +239,7 @@ export async function allocateWorktree(options: {
 	branch: string;
 	warnings: string[];
 }> {
-	const { repoRoot, stateRoot, agentId, parentSessionId } = options;
+	const { repoRoot, agentId, parentSessionId } = options;
 
 	const warnings: string[] = [];
 	const branch = `side-agent/${agentId}`;
@@ -200,77 +250,20 @@ export async function allocateWorktree(options: {
 		"HEAD",
 	], gitRunOpts).stdout.trim();
 
-	const registry = await (async () => {
-		const { loadRegistry } = await import("./registry.js");
-		return loadRegistry(stateRoot);
-	})();
-	const slots = await listWorktreeSlots(repoRoot);
+	// Use mkdtemp to create a fresh worktree directory in tmp
+	// Format: <tmpdir>/pi-side-agent-worktrees/<repoBasename>-<4-digit-index>
+	// We don't need to scan for existing slots anymore — mkdtemp always creates fresh dirs
+	const repoBasename = repoRoot.split("/").pop() ?? "repo";
+	const worktreeParentDirName = "pi-side-agent-worktrees";
+	const worktreePath = await fs.mkdtemp(
+		join(tmpdir(), `${worktreeParentDirName}/${repoBasename}-`),
+	);
+
+	const chosenPath = worktreePath;
 	const registered = listRegisteredWorktrees(repoRoot);
+	const isRegistered = registered.has(resolve(chosenPath));
 
-	let chosen: WorktreeSlot | undefined;
-	let maxIndex = 0;
-
-	for (const slot of slots) {
-		maxIndex = Math.max(maxIndex, slot.index);
-		const lockPath = join(slot.path, ".pi", "active.lock");
-
-		const lockExists = await (async () => {
-			const { fileExists: fe } = await import("./fs.js");
-			return fe(lockPath);
-		})();
-
-		if (lockExists) {
-			const lock = await readJsonFile<Record<string, unknown>>(lockPath);
-			const lockAgentId =
-				typeof lock?.["agentId"] === "string" ? lock?.["agentId"] : undefined;
-			if (!lockAgentId || !registry.agents[lockAgentId]) {
-				warnings.push(
-					`Locked worktree is not tracked in registry: ${slot.path}`,
-				);
-			}
-			continue;
-		}
-
-		const isRegistered = registered.has(resolve(slot.path));
-		if (isRegistered) {
-			const status = run("git", ["-C", slot.path, "status", "--porcelain"], gitRunOpts);
-			if (!status.ok) {
-				warnings.push(
-					`Could not inspect unlocked worktree, skipping: ${slot.path}`,
-				);
-				continue;
-			}
-			if (status.stdout.trim().length > 0) {
-				warnings.push(
-					`Unlocked worktree has local changes, skipping: ${slot.path}`,
-				);
-				continue;
-			}
-		} else {
-			const entries = await fs.readdir(slot.path).catch(() => []);
-			if (entries.length > 0) {
-				warnings.push(
-					`Unlocked slot is not a registered worktree and not empty, skipping: ${slot.path}`,
-				);
-				continue;
-			}
-		}
-
-		chosen = slot;
-		break;
-	}
-
-	if (!chosen) {
-		const next = maxIndex + 1 || 1;
-		const parent = dirname(repoRoot);
-		const name = `${basename(repoRoot)}-agent-worktree-${String(next).padStart(4, "0")}`;
-		chosen = { index: next, path: join(parent, name) };
-	}
-
-	const chosenPath = chosen.path;
-	const chosenRegistered = registered.has(resolve(chosenPath));
-
-	if (chosenRegistered) {
+	if (isRegistered) {
 		// Remember old branch so we can try to clean it up after switching away.
 		const oldBranchResult = run("git", [
 			"-C",
@@ -298,16 +291,6 @@ export async function allocateWorktree(options: {
 			run("git", ["-C", repoRoot, "branch", "-d", oldBranch], gitRunOpts);
 		}
 	} else {
-		const { fileExists: exists } = await import("./fs.js");
-		if (await exists(chosenPath)) {
-			const entries = await fs.readdir(chosenPath).catch(() => []);
-			if (entries.length > 0) {
-				throw new Error(
-					`Cannot use worktree slot ${chosenPath}: directory exists and is not empty`,
-				);
-			}
-		}
-		await ensureDir(dirname(chosenPath));
 		runOrThrow("git", [
 			"-C",
 			repoRoot,
@@ -333,7 +316,7 @@ export async function allocateWorktree(options: {
 
 	return {
 		worktreePath: chosenPath,
-		slotIndex: chosen.index,
+		slotIndex: 0,
 		branch,
 		warnings,
 	};

@@ -1,12 +1,5 @@
-import { promises as fs } from "node:fs";
-import { basename, dirname, join } from "node:path";
 import type { RegistryFile } from "./registry.js";
 import { gitRunOpts, run } from "./utils.js";
-
-export type WorktreeSlot = {
-	index: number;
-	path: string;
-};
 
 export type OrphanWorktreeLock = {
 	worktreePath: string;
@@ -103,32 +96,6 @@ export function deduplicateSlug(slug: string, existing: Set<string>): string {
 		const candidate = `${slug}-${i}`;
 		if (!existing.has(candidate)) return candidate;
 	}
-}
-
-export async function listWorktreeSlots(
-	repoRoot: string,
-): Promise<WorktreeSlot[]> {
-	const parent = dirname(repoRoot);
-	const prefix = `${basename(repoRoot)}-agent-worktree-`;
-	const re = new RegExp(
-		`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\d{4})$`,
-	);
-
-	const entries = await fs.readdir(parent, { withFileTypes: true });
-	const slots: WorktreeSlot[] = [];
-	for (const entry of entries) {
-		if (!entry.isDirectory()) continue;
-		const match = entry.name.match(re);
-		if (!match) continue;
-		const index = Number(match[1]);
-		if (!Number.isFinite(index)) continue;
-		slots.push({
-			index,
-			path: join(parent, entry.name),
-		});
-	}
-	slots.sort((a, b) => a.index - b.index);
-	return slots;
 }
 
 export function parseOptionalPid(value: unknown): number | undefined {

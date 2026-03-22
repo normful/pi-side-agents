@@ -1,10 +1,13 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import type { RegistryFile } from "./registry.js";
 import type { OrphanWorktreeLock } from "./slug.js";
 import {
 	cleanupWorktreeLockBestEffort,
+	listRegisteredWorktrees,
 	reclaimOrphanWorktreeLocks,
+	scanOrphanWorktreeLocks,
 	updateWorktreeLock,
 	writeWorktreeLock,
 } from "./worktree.js";
@@ -156,6 +159,288 @@ describe("reclaimOrphanWorktreeLocks", () => {
 		// We can't easily test this without mocking
 	});
 });
+
+// ============================================================================
+// TDD Test Cases: listRegisteredWorktrees
+// ============================================================================
+
+describe("listRegisteredWorktrees", () => {
+	let testDir: string;
+
+	beforeEach(async () => {
+		testDir = await setupTestDir();
+	});
+
+	test("RED: includes the main repo in worktree list", async () => {
+		// Initialize a git repo for testing
+		const worktreeRepo = join(testDir, "repo");
+		await mkdir(worktreeRepo, { recursive: true });
+		await runGit(["init"], worktreeRepo);
+		await runGit(["commit", "--allow-empty", "-m", "initial"], worktreeRepo);
+
+		const result = listRegisteredWorktrees(worktreeRepo);
+
+		// The main repo is always listed as a worktree
+		expect(result.size).toBeGreaterThanOrEqual(1);
+
+		// Check that result contains at least one absolute path
+		const paths = Array.from(result);
+		expect(paths[0]).toMatch(/^\//);
+	});
+
+	test("GREEN: includes main repo path in result", async () => {
+		const worktreeRepo = join(testDir, "repo");
+		await mkdir(worktreeRepo, { recursive: true });
+		await runGit(["init"], worktreeRepo);
+		await runGit(["commit", "--allow-empty", "-m", "initial"], worktreeRepo);
+
+		const result = listRegisteredWorktrees(worktreeRepo);
+
+		// The result should contain the main repo path
+		// (may be resolved differently due to git's internal path handling)
+		const mainRepoResolved = resolve(worktreeRepo);
+		const containsMainRepo = Array.from(result).some((p) =>
+			p === mainRepoResolved || p.endsWith("/repo"),
+		);
+		expect(containsMainRepo).toBe(true);
+	});
+
+	test("RED: returns resolved paths (absolute)", async () => {
+		const worktreeRepo = join(testDir, "repo");
+		await mkdir(worktreeRepo, { recursive: true });
+		await runGit(["init"], worktreeRepo);
+		await runGit(["commit", "--allow-empty", "-m", "initial"], worktreeRepo);
+
+		const result = listRegisteredWorktrees(worktreeRepo);
+
+		for (const path of result) {
+			expect(path).toStartWith("/");
+		}
+	});
+
+	test("GREEN: includes additional worktrees added via git worktree add", async () => {
+		const worktreeRepo = join(testDir, "repo");
+		await mkdir(worktreeRepo, { recursive: true });
+		await runGit(["init"], worktreeRepo);
+		await runGit(["commit", "--allow-empty", "-m", "initial"], worktreeRepo);
+
+		const branch = "feature-branch";
+		const worktreePath = join(testDir, "feature-worktree");
+		await runGit(
+			["worktree", "add", "-B", branch, worktreePath, "HEAD"],
+			worktreeRepo,
+		);
+
+		const result = listRegisteredWorktrees(worktreeRepo);
+
+		// Should contain the feature worktree path
+		const worktreeResolved = resolve(worktreePath);
+		const containsWorktree = Array.from(result).some(
+			(p) => p === worktreeResolved || p.endsWith("/feature-worktree"),
+		);
+		expect(containsWorktree).toBe(true);
+	});
+
+	test("RED: excludes non-worktree directories", async () => {
+		const worktreeRepo = join(testDir, "repo");
+		await mkdir(worktreeRepo, { recursive: true });
+		await runGit(["init"], worktreeRepo);
+		await runGit(["commit", "--allow-empty", "-m", "initial"], worktreeRepo);
+
+		// Create a regular directory that's not a worktree
+		const nonWorktreePath = join(testDir, "not-a-worktree");
+		await mkdir(nonWorktreePath, { recursive: true });
+
+		const result = listRegisteredWorktrees(worktreeRepo);
+
+		expect(result.has(nonWorktreePath)).toBe(false);
+	});
+});
+
+// ============================================================================
+// TDD Test Cases: scanOrphanWorktreeLocks
+// ============================================================================
+
+describe("scanOrphanWorktreeLocks", () => {
+	let testDir: string;
+	let mainRepo: string;
+
+	beforeEach(async () => {
+		testDir = await setupTestDir();
+		mainRepo = join(testDir, "main-repo");
+		await mkdir(mainRepo, { recursive: true });
+		await runGit(["init"], mainRepo);
+		await runGit(["commit", "--allow-empty", "-m", "initial"], mainRepo);
+	});
+
+	test("RED: returns empty scan when no worktrees exist", async () => {
+		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
+
+		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
+
+		expect(result.reclaimable).toHaveLength(0);
+		expect(result.blocked).toHaveLength(0);
+	});
+
+	test("GREEN: ignores worktrees without side-agent/ branches", async () => {
+		// Add a regular worktree (not side-agent)
+		const regularBranch = "regular-feature";
+		const regularWorktree = join(testDir, "regular-worktree");
+		await runGit(
+			["worktree", "add", "-B", regularBranch, regularWorktree, "HEAD"],
+			mainRepo,
+		);
+
+		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
+
+		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
+
+		expect(result.reclaimable).toHaveLength(0);
+		expect(result.blocked).toHaveLength(0);
+	});
+
+	test("RED: detects orphan worktree with lock but no agent in registry", async () => {
+		// Add a side-agent worktree with a lock file
+		const agentId = "orphan-agent-123";
+		const sideBranch = `side-agent/${agentId}`;
+		const worktreePath = join(testDir, "orphan-worktree");
+		await runGit(
+			["worktree", "add", "-B", sideBranch, worktreePath, "HEAD"],
+			mainRepo,
+		);
+
+		// Create lock file pointing to non-existent agent
+		await mkdir(join(worktreePath, ".pi"), { recursive: true });
+		await writeFile(
+			join(worktreePath, ".pi", "active.lock"),
+			JSON.stringify({ agentId, pid: 99999 }),
+		);
+
+		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
+
+		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
+
+		// Should detect the orphan as reclaimable (no blockers)
+		expect(result.reclaimable.length + result.blocked.length).toBeGreaterThan(0);
+	});
+
+	test("GREEN: ignores worktree whose agent IS in registry", async () => {
+		const agentId = "active-agent-456";
+		const sideBranch = `side-agent/${agentId}`;
+		const worktreePath = join(testDir, "active-worktree");
+		await runGit(
+			["worktree", "add", "-B", sideBranch, worktreePath, "HEAD"],
+			mainRepo,
+		);
+
+		// Create lock file
+		await mkdir(join(worktreePath, ".pi"), { recursive: true });
+		await writeFile(
+			join(worktreePath, ".pi", "active.lock"),
+			JSON.stringify({ agentId, pid: process.pid }),
+		);
+
+		// Registry has the agent - should be ignored
+		const registry: RegistryFile = {
+			agents: { [agentId]: { sessionId: "sess-123" } },
+			worktrees: {},
+		};
+
+		const result = await scanOrphanWorktreeLocks(mainRepo, registry);
+
+		expect(result.reclaimable).toHaveLength(0);
+		expect(result.blocked).toHaveLength(0);
+	});
+
+	test("RED: categorizes as blocked when lock has alive pid", async () => {
+		const agentId = "blocked-by-pid";
+		const sideBranch = `side-agent/${agentId}`;
+		const worktreePath = join(testDir, "blocked-pid-worktree");
+		await runGit(
+			["worktree", "add", "-B", sideBranch, worktreePath, "HEAD"],
+			mainRepo,
+		);
+
+		// Use our own pid which is definitely alive
+		await mkdir(join(worktreePath, ".pi"), { recursive: true });
+		await writeFile(
+			join(worktreePath, ".pi", "active.lock"),
+			JSON.stringify({ agentId, pid: process.pid }),
+		);
+
+		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
+
+		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
+
+		const allOrphans = [...result.reclaimable, ...result.blocked];
+		const blocked = allOrphans.find((o) => o.lockAgentId === agentId);
+
+		expect(blocked).toBeDefined();
+		expect(blocked?.blockers.some((b) => b.includes("pid"))).toBe(true);
+	});
+
+	test("GREEN: includes lockAgentId in orphan when present in lock", async () => {
+		const agentId = "orphan-with-id";
+		const sideBranch = `side-agent/${agentId}`;
+		const worktreePath = join(testDir, "orphan-id-worktree");
+		await runGit(
+			["worktree", "add", "-B", sideBranch, worktreePath, "HEAD"],
+			mainRepo,
+		);
+
+		await mkdir(join(worktreePath, ".pi"), { recursive: true });
+		await writeFile(
+			join(worktreePath, ".pi", "active.lock"),
+			JSON.stringify({ agentId, tmuxWindowId: "window-dead" }),
+		);
+
+		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
+
+		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
+
+		const allOrphans = [...result.reclaimable, ...result.blocked];
+		const orphan = allOrphans.find((o) => o.lockAgentId === agentId);
+
+		expect(orphan).toBeDefined();
+		expect(orphan?.lockAgentId).toBe(agentId);
+	});
+
+	test("RED: handles worktree with invalid lock file gracefully", async () => {
+		const agentId = "invalid-lock";
+		const sideBranch = `side-agent/${agentId}`;
+		const worktreePath = join(testDir, "invalid-lock-worktree");
+		await runGit(
+			["worktree", "add", "-B", sideBranch, worktreePath, "HEAD"],
+			mainRepo,
+		);
+
+		// Create invalid JSON lock
+		await mkdir(join(worktreePath, ".pi"), { recursive: true });
+		await writeFile(
+			join(worktreePath, ".pi", "active.lock"),
+			"not valid json {{{",
+		);
+
+		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
+
+		// Should not throw
+		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
+
+		// Lock is unreadable so it should be skipped
+		expect(result.reclaimable).toHaveLength(0);
+		expect(result.blocked).toHaveLength(0);
+	});
+});
+
+// Helper functions
+
+async function runGit(args: string[], cwd: string): Promise<void> {
+	const { run } = await import("./utils.js");
+	const result = run("git", args, { cwd });
+	if (!result.ok) {
+		throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
+	}
+}
 
 // Helper
 const testBaseDir = join(
