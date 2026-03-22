@@ -1,4 +1,3 @@
-import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
@@ -8,8 +7,8 @@ import {
 	copyFile,
 	mkdir,
 	mkdtemp,
-	readFile,
 	readdir,
+	readFile,
 	rm,
 	symlink,
 	unlink,
@@ -17,6 +16,7 @@ import {
 } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import test, { after, before } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const PROJECT_ROOT = resolve(process.cwd());

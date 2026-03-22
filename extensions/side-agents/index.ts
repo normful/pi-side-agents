@@ -1,17 +1,17 @@
+import { spawnSync } from "node:child_process";
+import { promises as fs } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { complete, type Message } from "@mariozechner/pi-ai";
-import {
-	convertToLlm,
-	serializeConversation,
-} from "@mariozechner/pi-coding-agent";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
 	SessionEntry,
 } from "@mariozechner/pi-coding-agent";
+import {
+	convertToLlm,
+	serializeConversation,
+} from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
-import { spawnSync } from "node:child_process";
-import { promises as fs } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
 
 const ENV_STATE_ROOT = "PI_SIDE_AGENTS_ROOT";
 const ENV_AGENT_ID = "PI_SIDE_AGENT_ID";

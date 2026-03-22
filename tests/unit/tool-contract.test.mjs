@@ -13,11 +13,11 @@
  *   4. sendToAgent interrupt-prefix stripping logic
  */
 
-import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test from "node:test";
 
 // ---------------------------------------------------------------------------
 // Minimal JS re-implementations of pure extension functions
