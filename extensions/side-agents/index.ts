@@ -226,11 +226,11 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-start",
 		label: "Agent Start",
 		description:
-			"Start a background side agent in a tmux window with its own git worktree. Use for tasks that may take time or involve multiple steps. The agent works autonomously and yields (waiting_user) when it needs input or has completed its task. Returns agent metadata including id, tmuxWindowId, worktreePath, and branch. The agent's work is committed to a dedicated branch in its worktree — merge manually or cherry-pick when done.",
+			"Start a background coding AI agent. The agent yields (waiting_user) when completes or it needs input. Returns agent metadata including id, tmuxWindowId, worktreePath, and branch. The agent's work is committed to a branch in its git worktree",
 		parameters: Type.Object({
 			description: Type.String({
 				description:
-					"Prompt with task description for child agent. Include all necessary context, constraints, and expected outcome. Can reference files using @ syntax",
+					"Task description LLM prompt for child agent. Include necessary context, constraints, and expected outcome. Can reference files using @ syntax",
 			}),
 			branchHint: Type.String({
 				description:
@@ -264,7 +264,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 									id: started.id,
 									task:
 										params.description.length > 200
-											? params.description.slice(0, 200) + "…"
+											? `${params.description.slice(0, 200)}...`
 											: params.description,
 									tmuxWindowId: started.tmuxWindowId,
 									tmuxWindowIndex: started.tmuxWindowIndex,
@@ -301,7 +301,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-check",
 		label: "Agent Check",
 		description:
-			"Check a side agent's current status and retrieve recent output",
+			"Check background agent's current status and retrieve recent output",
 		parameters: Type.Object({
 			id: Type.String({ description: "Agent id returned by agent-start" }),
 		}),
@@ -340,7 +340,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-wait-any",
 		label: "Agent Wait Any",
 		description:
-			"Block and wait for one or more side agents to reach a terminal or yielding state. Returns the agent's full status payload once any watched agent completes (done), fails, crashes, or yields (waiting_user). Use after agent-start or agent-send to let the agent do work. Returns error if agent ids are unknown or already removed from registry.",
+			"Block and wait for any background agent to reach a terminal or yielding state. Use after agent-start or agent-send. Returns error if agent ids are unknown or already deleted",
 		parameters: Type.Object({
 			ids: Type.Array(Type.String({ description: "Agent id" }), {
 				description: "Agent ids to wait for",
@@ -381,12 +381,11 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		name: "agent-send",
 		label: "Agent Send",
 		description:
-			"Send a text prompt to a side agent's tmux pane to steer. For immediate interruption or forced commands, prefix prompt with: '!' to interrupt first, '/' for slash commands (e.g. '/quit' to terminate). IMPORTANT: Always append newline character ('\\\\n') to end of prompt",
+			"Send text to a background agent's tmux pane. For immediate interruption or forced commands, prefix prompt with: '!' to interrupt first, '/' for slash commands (e.g. '/quit' to terminate). IMPORTANT: Always append newline character to end of prompt",
 		parameters: Type.Object({
 			id: Type.String({ description: "Agent id returned by agent-start" }),
 			prompt: Type.String({
-				description:
-					"Prompt text to send",
+				description: "",
 			}),
 		}),
 		async execute(
