@@ -251,23 +251,16 @@ description: Rebase the branch with current work onto upstream and fast-forward 
 When the user explicitly approves the work (e.g. says "LGTM", "ship it", "merge it"):
 
 1. **Confirm** the finish action with the user before doing anything.
-
-2. Run the finish script:
-
-```bash
-PI_SIDE_PARENT_REPO="$PI_SIDE_PARENT_REPO" .pi/side-agent-finish.sh
-```
-
-3. If the finish script exits with code 2 (conflict rebasing child branch onto MAIN_BRANCH_VALUE):
+2. Use the bash tool to show the value of the $PI_SIDE_PARENT_REPO env var.
+3. Run the finish script and explicitly pass the found value of PI_SIDE_PARENT_REPO from prev step. Example: `PI_SIDE_PARENT_REPO="/Users/somebody/some/path" .pi/side-agent-finish.sh`
+4. If the finish script exits with code 2 (conflict rebasing child branch onto MAIN_BRANCH_VALUE):
    - Stay in this worktree
    - Resolve conflicts (`git status`, then `git rebase --continue`)
    - Re-run the finish script after the rebase completes
-
-4. If the parent-side fast-forward fails because MAIN_BRANCH_VALUE moved ahead:
+5. If the parent-side fast-forward fails because MAIN_BRANCH_VALUE moved ahead:
    - The finish script retries the rebase reconcile loop automatically
    - Parent-side integration is a bit sensitive operation as it can make big mess; solve simple issues yourself, but escalate to the user with major issues (such as dirty parent worktree)
-
-5. After success: report the landed commit(s). Suggest `/quit` if no further work is needed.
+6. After success: report the landed commit(s). Suggest `/quit` if no further work is needed.
 ```
 
 **For PR policy**, write a simpler finish skill:
@@ -283,17 +276,9 @@ description: Open a PR for the branch with current work to upstream after explic
 When the user explicitly approves the work (e.g. says "LGTM", "ship it"):
 
 1. **Confirm** with user before pushing.
-
-2. Run the finish script to push the branch and open a PR automatically:
-
-```bash
-.pi/side-agent-finish.sh
-```
-
+2. Run the finish script to push the branch and open a PR automatically: `.pi/side-agent-finish.sh`
 3. Suggest `/quit` if no further work is needed.
 ```
-
----
 
 ## Phase 3: Report
 
@@ -301,8 +286,8 @@ Tell the user which files were created, updated, or skipped, including backup/re
 
 Explicitly remind the user that `.pi/side-agent-*` files are local runtime setup and should stay untracked (not committed to git).
 
-
-- Backup reference for future diffs
+Tell user they can now:
 - Start an agent: `/agent <task description>`
-- Watch status: statusline shows active agents, ...@<number> is the tmux window to switch to; `/agents` lists all
-- Ask you to set up and manage a flock of multiple side agents on your own to solve a task (you have the tools)
+- List running agents: `/agents`
+- Watch pi statusline showing active agents: ...@<number> is the tmux window to switch to.
+- Ask you (assistant) to set up and manage a flock of multiple side agents own to solve a task (you have the tools)
