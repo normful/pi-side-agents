@@ -175,13 +175,9 @@ if [[ -x "$START_SCRIPT" ]]; then
   fi
 fi
 
-PI_CMD=(cco --safe --add-dir "~/.bun:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$RUNTIME_DIR:rw" pi)
+PI_CMD=(cco --safe --add-dir "~/.bun:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$RUNTIME_DIR:rw" pi --skill "$CHILD_SKILLS_DIR")
 if [[ -n "$MODEL_SPEC" ]]; then
   PI_CMD+=(--model "$MODEL_SPEC")
-fi
-if [[ -d "$CHILD_SKILLS_DIR" ]]; then
-  # agent-setup writes the child-only finish skill here; load it explicitly.
-  PI_CMD+=(--skill "$CHILD_SKILLS_DIR")
 fi
 
 set +e
