@@ -1,0 +1,417 @@
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from "@mariozechner/pi-coding-agent";
+import { Type } from "@sinclair/typebox";
+import {
+	startAgent,
+	sendToAgent,
+	agentCheckPayload,
+	waitForAny,
+	renderInfoMessage,
+	formatStatusWord,
+	formatLabelPrefix,
+	ensureStatusPoller,
+	renderStatusLine,
+	setChildRuntimeStatus,
+	ensureChildSessionLinked,
+	parseAgentCommandArgs,
+	summarizeTask,
+	collectStatusTransitions,
+	emitStatusTransitions,
+	summarizeOrphanLock,
+	isChildRuntime,
+} from "./agent.js";
+import { getStateRoot, isTerminalStatus, mutateRegistry } from "./registry.js";
+import { scanOrphanWorktreeLocks, reclaimOrphanWorktreeLocks } from "./worktree.js";
+import { stringifyError } from "./utils.js";
+import { run } from "./utils.js";
+
+function resolveGitRoot(cwd: string): string {
+	const result = run("git", ["-C", cwd, "rev-parse", "--show-toplevel"]);
+	if (result.ok) {
+		const root = result.stdout.trim();
+		if (root.length > 0) return root;
+	}
+	return cwd;
+}
+
+export default function sideAgentsExtension(pi: ExtensionAPI) {
+	pi.registerCommand("agent", {
+		description:
+			"Spawn a background child agent in its own tmux window/worktree: /agent [-model <provider/id>] <task>",
+		handler: async (args, ctx) => {
+			const parsed = parseAgentCommandArgs(args);
+			if (!parsed.task) {
+				ctx.hasUI &&
+					ctx.ui.notify("Usage: /agent [-model <provider/id>] <task>", "error");
+				return;
+			}
+
+			try {
+				ctx.hasUI && ctx.ui.notify("Starting side-agent…", "info");
+				const started = await startAgent(pi, ctx, {
+					task: parsed.task,
+					model: parsed.model,
+					includeSummary: true,
+				});
+
+				const lines = [
+					`id: ${started.id}`,
+					`tmux window: ${started.tmuxWindowId} (#${started.tmuxWindowIndex})`,
+					`worktree: ${started.worktreePath}`,
+					`branch: ${started.branch}`,
+				];
+				for (const warning of started.warnings) {
+					lines.push(`warning: ${warning}`);
+				}
+				lines.push("", "prompt:");
+				for (const line of started.prompt.split(/\r?\n/)) {
+					lines.push(`  ${line}`);
+				}
+				renderInfoMessage(pi, ctx, "side-agent started", lines);
+				await renderStatusLine(pi, ctx).catch(() => {});
+			} catch (err) {
+				ctx.hasUI &&
+					ctx.ui.notify(
+						`Failed to start agent: ${stringifyError(err)}`,
+						"error",
+					);
+			}
+		},
+	});
+
+	pi.registerCommand("agents", {
+		description: "List tracked side agents",
+		handler: async (_args, ctx) => {
+			const stateRoot = getStateRoot(ctx);
+			const repoRoot = resolveGitRoot(stateRoot);
+			let registry = await (async () => {
+				const { refreshAllAgents } = await import("./agent.js");
+				return refreshAllAgents(stateRoot);
+			})();
+			const records = Object.values(registry.agents).sort((a, b) =>
+				a.id.localeCompare(b.id),
+			);
+			let orphanLocks = await scanOrphanWorktreeLocks(repoRoot, registry);
+
+			if (
+				records.length === 0 &&
+				orphanLocks.reclaimable.length === 0 &&
+				orphanLocks.blocked.length === 0
+			) {
+				ctx.hasUI && ctx.ui.notify("No tracked side agents yet.", "info");
+				return;
+			}
+
+			const lines: string[] = [];
+			const failedIds: string[] = [];
+
+			if (records.length === 0) {
+				lines.push("(no tracked agents)");
+			} else {
+				const theme = ctx.hasUI ? ctx.ui.theme : undefined;
+				for (const [index, record] of records.entries()) {
+					const win =
+						record.tmuxWindowIndex !== undefined
+							? `#${record.tmuxWindowIndex}`
+							: "-";
+					const worktreeName = record.worktreePath
+						? basename(record.worktreePath) || record.worktreePath
+						: "-";
+					const statusWord = formatStatusWord(record.status, theme);
+					const winPrefix = formatLabelPrefix("win:", theme);
+					const worktreePrefix = formatLabelPrefix("worktree:", theme);
+					const taskPrefix = formatLabelPrefix("task:", theme);
+					lines.push(
+						`${record.id}  ${statusWord}  ${winPrefix}${win}  ${worktreePrefix}${worktreeName}`,
+					);
+					lines.push(`  ${taskPrefix} ${summarizeTask(record.task)}`);
+					if (record.error) lines.push(`  error: ${record.error}`);
+					if (record.status === "failed" || record.status === "crashed") {
+						failedIds.push(record.id);
+					}
+					if (index < records.length - 1) {
+						lines.push("");
+					}
+				}
+			}
+
+			if (
+				orphanLocks.reclaimable.length > 0 ||
+				orphanLocks.blocked.length > 0
+			) {
+				if (lines.length > 0) lines.push("");
+				lines.push("orphan worktree locks:");
+				for (const lock of orphanLocks.reclaimable) {
+					lines.push(`  reclaimable: ${summarizeOrphanLock(lock)}`);
+				}
+				for (const lock of orphanLocks.blocked) {
+					lines.push(
+						`  blocked: ${summarizeOrphanLock(lock)} (${lock.blockers.join("; ")})`,
+					);
+				}
+			}
+
+			renderInfoMessage(pi, ctx, "side-agents", lines);
+
+			if (failedIds.length > 0 && ctx.hasUI) {
+				const confirmed = await ctx.ui.confirm(
+					"Clean up failed agents?",
+					`Remove ${failedIds.length} failed/crashed agent(s) from registry: ${failedIds.join(", ")}`,
+				);
+				if (confirmed) {
+					registry = await mutateRegistry(stateRoot, async (next) => {
+						for (const id of failedIds) {
+							delete next.agents[id];
+						}
+					});
+					ctx.ui.notify(
+						`Removed ${failedIds.length} agent(s): ${failedIds.join(", ")}`,
+						"info",
+					);
+				}
+			}
+
+			orphanLocks = await scanOrphanWorktreeLocks(repoRoot, registry);
+
+			if (orphanLocks.reclaimable.length > 0 && ctx.hasUI) {
+				const preview = orphanLocks.reclaimable
+					.slice(0, 6)
+					.map((lock) => `- ${summarizeOrphanLock(lock)}`);
+				if (orphanLocks.reclaimable.length > preview.length) {
+					preview.push(
+						`- ... and ${orphanLocks.reclaimable.length - preview.length} more`,
+					);
+				}
+
+				const confirmed = await ctx.ui.confirm(
+					"Reclaim orphan worktree locks?",
+					[
+						`Remove ${orphanLocks.reclaimable.length} orphan worktree lock(s)?`,
+						"Only lock files with no tracked registry agent and no live pid/tmux signal are included.",
+						"",
+						...preview,
+					].join("\n"),
+				);
+				if (confirmed) {
+					const reclaimed = await reclaimOrphanWorktreeLocks(
+						orphanLocks.reclaimable,
+					);
+					if (reclaimed.failed.length === 0) {
+						ctx.ui.notify(
+							`Reclaimed ${reclaimed.removed.length} orphan worktree lock(s).`,
+							"info",
+						);
+					} else {
+						ctx.ui.notify(
+							`Reclaimed ${reclaimed.removed.length} orphan lock(s); failed ${reclaimed.failed.length}.`,
+							"warning",
+						);
+					}
+				}
+			}
+
+			if (orphanLocks.blocked.length > 0 && ctx.hasUI) {
+				ctx.ui.notify(
+					`Found ${orphanLocks.blocked.length} orphan lock(s) that look live; leaving them untouched.`,
+					"warning",
+				);
+			}
+		},
+	});
+
+	pi.registerTool({
+		name: "agent-start",
+		label: "Agent Start",
+		description:
+			"Start a background side agent in tmux/worktree. Lifecycle: child implements the change or asks for clarification -> wait-state and yield -> parent inspects (agent-check or agent-wait-any), reviews work, reacts -> eventually, parent asks child to wrap up (send 'LGTM, merge'), sends /quit when child is done. Provide a short kebab-case branchHint (max 3 words) for the agent's branch name. Returns { ok: true, id, task, tmuxWindowId, tmuxWindowIndex, worktreePath, branch, warnings[] } on success, or { ok: false, error } on failure.",
+		parameters: Type.Object({
+			description: Type.String({
+				description:
+					"Task description for child agent kickoff prompt (include all necessary context)",
+			}),
+			branchHint: Type.String({
+				description:
+					"Short kebab-case branch slug, max 3 words (e.g. fix-auth-leak)",
+			}),
+			model: Type.Optional(
+				Type.String({ description: "Model as provider/modelId (optional)" }),
+			),
+		}),
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			try {
+				const started = await startAgent(pi, ctx, {
+					task: params.description,
+					branchHint: params.branchHint,
+					model: params.model,
+					includeSummary: false,
+				});
+				return {
+					content: [
+						{
+							type: "text",
+							text: JSON.stringify(
+								{
+									ok: true,
+									id: started.id,
+									task:
+										params.description.length > 200
+											? params.description.slice(0, 200) + "…"
+											: params.description,
+									tmuxWindowId: started.tmuxWindowId,
+									tmuxWindowIndex: started.tmuxWindowIndex,
+									worktreePath: started.worktreePath,
+									branch: started.branch,
+									warnings: started.warnings,
+								},
+								null,
+								2,
+							),
+						},
+					],
+				};
+			} catch (err) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: JSON.stringify(
+								{ ok: false, error: stringifyError(err) },
+								null,
+								2,
+							),
+						},
+					],
+				};
+			}
+		},
+	});
+
+	pi.registerTool({
+		name: "agent-check",
+		label: "Agent Check",
+		description:
+			"Check a given side agent status and return compact recent output. Returns { ok: true, agent: { id, status, tmuxWindowId, tmuxWindowIndex, worktreePath, branch, task, startedAt, finishedAt?, exitCode?, error?, warnings[] }, backlog: string[] }, or { ok: false, error } if the agent id is unknown or a registry error occurs. backlog is sanitized/truncated for LLM safety; task is a compact preview. Statuses: allocating_worktree | spawning_tmux | running | waiting_user | failed | crashed. Agents that exit with code 0 are auto-removed from registry.",
+		parameters: Type.Object({
+			id: Type.String({ description: "Agent id" }),
+		}),
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			try {
+				const payload = await agentCheckPayload(getStateRoot(ctx), params.id);
+				return {
+					content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+				};
+			} catch (err) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: JSON.stringify(
+								{ ok: false, error: stringifyError(err) },
+								null,
+								2,
+							),
+						},
+					],
+				};
+			}
+		},
+	});
+
+	pi.registerTool({
+		name: "agent-wait-any",
+		label: "Agent Wait Any",
+		description:
+			"Wait for an agent to finish its work. Returns the agent's status payload (same shape as agent-check) once it completes (done), yields (waiting_user), fails, or crashes.",
+		parameters: Type.Object({
+			ids: Type.Array(Type.String({ description: "Agent id" }), {
+				description: "Agent ids to wait for",
+			}),
+		}),
+		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+			try {
+				const payload = await waitForAny(getStateRoot(ctx), params.ids, signal);
+				return {
+					content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+				};
+			} catch (err) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: JSON.stringify(
+								{ ok: false, error: stringifyError(err) },
+								null,
+								2,
+							),
+						},
+					],
+				};
+			}
+		},
+	});
+
+	pi.registerTool({
+		name: "agent-send",
+		label: "Agent Send",
+		description:
+			"Send a steering/follow-up prompt to a child agent's tmux pane. Returns { ok: boolean, message: string }.",
+		parameters: Type.Object({
+			id: Type.String({ description: "Agent id" }),
+			prompt: Type.String({
+				description:
+					"Prompt text to send (prefix with '!' to interrupt first instead of organic steering, '/' for slash commands like /quit)",
+			}),
+		}),
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			try {
+				const payload = await sendToAgent(
+					getStateRoot(ctx),
+					params.id,
+					params.prompt,
+				);
+				return {
+					content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+				};
+			} catch (err) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: JSON.stringify(
+								{ ok: false, error: stringifyError(err) },
+								null,
+								2,
+							),
+						},
+					],
+				};
+			}
+		},
+	});
+
+	pi.on("session_start", async (_event, ctx) => {
+		await ensureChildSessionLinked(pi, ctx).catch(() => {});
+		ensureStatusPoller(pi, ctx);
+	});
+
+	pi.on("session_switch", async (_event, ctx) => {
+		await ensureChildSessionLinked(pi, ctx).catch(() => {});
+		ensureStatusPoller(pi, ctx);
+	});
+
+	pi.on("agent_start", async (_event, ctx) => {
+		await setChildRuntimeStatus(ctx, "running").catch(() => {});
+	});
+
+	pi.on("agent_end", async (_event, ctx) => {
+		await setChildRuntimeStatus(ctx, "waiting_user").catch(() => {});
+	});
+
+	pi.on("before_agent_start", async (_event, ctx) => {
+		statusPollContext = ctx;
+		statusPollApi = pi;
+		await renderStatusLine(pi, ctx, { emitTransitions: false }).catch(() => {});
+	});
+}
