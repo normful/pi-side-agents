@@ -117,6 +117,14 @@ set -euo pipefail
 PARENT_ROOT="${PI_SIDE_PARENT_REPO:-${1:-}}"
 AGENT_ID="${PI_SIDE_AGENT_ID:-${2:-unknown}}"
 MAIN_BRANCH="MAIN_BRANCH_VALUE"
+
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_AUTHOR_NAME="AI"
+export GIT_AUTHOR_EMAIL="none"
+export GIT_COMMITTER_NAME="AI"
+export GIT_COMMITTER_EMAIL="none"
+
 BRANCH="$(git branch --show-current)"
 
 if [[ -z "$PARENT_ROOT" ]]; then
