@@ -11,13 +11,13 @@ import {
 	type WorktreeSlot,
 } from "./slug.js";
 import {
+	gitRunOpts,
 	nowIso,
 	run,
 	runOrThrow,
 	stringifyError,
 	tmuxWindowExists,
 } from "./utils.js";
-
 export async function writeWorktreeLock(
 	worktreePath: string,
 	payload: Record<string, unknown>,
@@ -52,7 +52,7 @@ export function listRegisteredWorktrees(repoRoot: string): Set<string> {
 		"worktree",
 		"list",
 		"--porcelain",
-	]);
+	], gitRunOpts);
 	const set = new Set<string>();
 	for (const line of result.stdout.split(/\r?\n/)) {
 		if (line.startsWith("worktree ")) {
@@ -198,7 +198,7 @@ export async function allocateWorktree(options: {
 		repoRoot,
 		"rev-parse",
 		"HEAD",
-	]).stdout.trim();
+	], gitRunOpts).stdout.trim();
 
 	const registry = await (async () => {
 		const { loadRegistry } = await import("./registry.js");
@@ -233,7 +233,7 @@ export async function allocateWorktree(options: {
 
 		const isRegistered = registered.has(resolve(slot.path));
 		if (isRegistered) {
-			const status = run("git", ["-C", slot.path, "status", "--porcelain"]);
+			const status = run("git", ["-C", slot.path, "status", "--porcelain"], gitRunOpts);
 			if (!status.ok) {
 				warnings.push(
 					`Could not inspect unlocked worktree, skipping: ${slot.path}`,
@@ -277,17 +277,25 @@ export async function allocateWorktree(options: {
 			chosenPath,
 			"branch",
 			"--show-current",
-		]);
+		], gitRunOpts);
 		const oldBranch = oldBranchResult.ok ? oldBranchResult.stdout.trim() : "";
 
-		run("git", ["-C", chosenPath, "merge", "--abort"]);
-		runOrThrow("git", ["-C", chosenPath, "reset", "--hard", mainHead]);
-		runOrThrow("git", ["-C", chosenPath, "clean", "-fd"]);
-		runOrThrow("git", ["-C", chosenPath, "checkout", "-B", branch, mainHead]);
+		run("git", ["-C", chosenPath, "merge", "--abort"], gitRunOpts);
+		runOrThrow(
+			"git",
+			["-C", chosenPath, "reset", "--hard", mainHead],
+			gitRunOpts,
+		);
+		runOrThrow("git", ["-C", chosenPath, "clean", "-fd"], gitRunOpts);
+		runOrThrow(
+			"git",
+			["-C", chosenPath, "checkout", "-B", branch, mainHead],
+			gitRunOpts,
+		);
 
 		// Best-effort cleanup: delete old branch if fully merged (-d, not -D).
 		if (oldBranch && oldBranch !== branch) {
-			run("git", ["-C", repoRoot, "branch", "-d", oldBranch]);
+			run("git", ["-C", repoRoot, "branch", "-d", oldBranch], gitRunOpts);
 		}
 	} else {
 		const { fileExists: exists } = await import("./fs.js");
@@ -309,7 +317,7 @@ export async function allocateWorktree(options: {
 			branch,
 			chosenPath,
 			mainHead,
-		]);
+		], gitRunOpts);
 	}
 
 	await ensureDir(join(chosenPath, ".pi"));

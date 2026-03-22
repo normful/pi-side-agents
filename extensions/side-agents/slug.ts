@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import type { RegistryFile } from "./registry.js";
-import { run } from "./utils.js";
+import { gitRunOpts, run } from "./utils.js";
 
 export type WorktreeSlot = {
 	index: number;
@@ -78,7 +78,7 @@ export function existingAgentIds(
 		"worktree",
 		"list",
 		"--porcelain",
-	]);
+	], gitRunOpts);
 	if (listed.ok) {
 		for (const line of listed.stdout.split(/\r?\n/)) {
 			if (!line.startsWith("branch ")) continue;

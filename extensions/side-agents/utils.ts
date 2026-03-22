@@ -1,4 +1,16 @@
-import { spawnSync } from "node:child_process";
+import {
+	type SpawnSyncOptionsWithStringEncoding,
+	spawnSync,
+} from "node:child_process";
+
+export type { SpawnSyncOptionsWithStringEncoding };
+
+export const gitRunOpts: Partial<SpawnSyncOptionsWithStringEncoding> = {
+	env: {
+		GIT_CONFIG_GLOBAL: "/dev/null/",
+		GIT_CONFIG_SYSTEM: "/dev/null/",
+	},
+};
 
 export type CommandResult = {
 	ok: boolean;
@@ -114,11 +126,10 @@ export function normalizeWaitStates(input?: string[]): {
 export function run(
 	command: string,
 	args: string[],
-	options?: { cwd?: string; input?: string },
+	options?: Partial<SpawnSyncOptionsWithStringEncoding>,
 ): CommandResult {
 	const result = spawnSync(command, args, {
-		cwd: options?.cwd,
-		input: options?.input,
+		...(options ?? {}),
 		encoding: "utf8",
 	});
 
@@ -143,7 +154,7 @@ export function run(
 export function runOrThrow(
 	command: string,
 	args: string[],
-	options?: { cwd?: string; input?: string },
+	options?: Partial<SpawnSyncOptionsWithStringEncoding>,
 ): CommandResult {
 	const result = run(command, args, options);
 	if (!result.ok) {

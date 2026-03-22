@@ -7,7 +7,7 @@ import {
 	readJsonFile,
 	withFileLock,
 } from "./fs.js";
-import { nowIso, run, stringifyError } from "./utils.js";
+import { gitRunOpts, nowIso, run, stringifyError } from "./utils.js";
 
 export const REGISTRY_VERSION = 1;
 const ENV_STATE_ROOT = "PI_SIDE_AGENTS_ROOT";
@@ -80,7 +80,7 @@ export type ExitMarker = {
 };
 
 function resolveGitRoot(cwd: string): string {
-	const result = run("git", ["-C", cwd, "rev-parse", "--show-toplevel"]);
+	const result = run("git", ["-C", cwd, "rev-parse", "--show-toplevel"], gitRunOpts);
 	if (result.ok) {
 		const root = result.stdout.trim();
 		if (root.length > 0) return resolve(root);
