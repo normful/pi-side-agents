@@ -26,7 +26,9 @@ const TEST_TIMEOUT = Number(process.env.PI_SIDE_IT_TIMEOUT_MS ?? 240_000);
 let piShimCleanup = async () => {};
 
 before(async () => {
+	console.error("[DEBUG] before hook: starting...");
 	piShimCleanup = await ensureLoginShellPiCommand();
+	console.error("[DEBUG] before hook: done");
 });
 
 after(async () => {
@@ -89,13 +91,23 @@ async function waitFor(description, fn, options = {}) {
 	const intervalMs = options.intervalMs ?? 250;
 	const startedAt = Date.now();
 	let lastError;
+	let attempt = 0;
 
 	while (Date.now() - startedAt < timeoutMs) {
+		attempt++;
 		try {
 			const value = await fn();
-			if (value) return value;
+			if (value) {
+				if (attempt > 1) {
+					console.error(`[DEBUG] waitFor "${description}" resolved on attempt ${attempt} after ${Date.now() - startedAt}ms`);
+				}
+				return value;
+			}
 		} catch (error) {
 			lastError = error;
+		}
+		if (attempt % 20 === 0) {
+			console.error(`[DEBUG] waitFor "${description}" still waiting... ${Date.now() - startedAt}ms elapsed`);
 		}
 		await sleep(intervalMs);
 	}
@@ -150,7 +162,13 @@ async function capturePane(harness, target, lines = 400) {
 		"-S",
 		`-${lines}`,
 	]);
-	return result.stdout;
+	const output = result.stdout;
+	if (output.length === 0) {
+		console.error(`[DEBUG] capturePane(${target}): empty pane`);
+	} else {
+		console.error(`[DEBUG] capturePane(${target}): ${output.length} chars, last line: ${output.split('\n').slice(-2).join(' | ')}`);
+	}
+	return output;
 }
 
 async function captureParent(harness, lines = 500) {
@@ -647,7 +665,9 @@ async function closeChildWindowAfterPrompt(harness, agentId, windowIdHint) {
 }
 
 async function createHarness(t, options = {}) {
+	console.error("[DEBUG] createHarness: starting...");
 	const rootDir = await mkdtemp(join(tmpdir(), "pi-side-it-"));
+	console.error(`[DEBUG] createHarness: rootDir=${rootDir}`);
 	const repoRoot = join(rootDir, "repo");
 	const agentDir = join(rootDir, "agent-dir");
 	const parentSessionDir = join(rootDir, "sessions");
@@ -655,6 +675,7 @@ async function createHarness(t, options = {}) {
 	const sessionName = `it-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
 	const { provider, modelId } = parseModelSpec(MODEL_SPEC);
+	console.error(`[DEBUG] createHarness: provider=${provider}, modelId=${modelId}`);
 
 	await mkdir(repoRoot, { recursive: true });
 	await mkdir(agentDir, { recursive: true });
@@ -783,6 +804,11 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 		PI_OFFLINE: "1",
 	};
 
+	console.error(`[DEBUG] createHarness: launchScript=${launchScript}`);
+	console.error(`[DEBUG] createHarness: PI_CODING_AGENT_DIR=${agentDir}`);
+	console.error(`[DEBUG] createHarness: PI_SIDE_AGENTS_ROOT=${repoRoot}`);
+	console.error("[DEBUG] createHarness: starting tmux session...");
+
 	tmux(
 		{ tmuxSocket },
 		[
@@ -798,6 +824,7 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 		],
 		{ env },
 	);
+	console.error(`[DEBUG] createHarness: tmux session created: ${sessionName}`);
 
 	const harness = {
 		rootDir,
@@ -814,14 +841,21 @@ exec pi --model ${JSON.stringify(MODEL_SPEC)} --thinking minimal --session-dir $
 		await rm(rootDir, { recursive: true, force: true });
 	});
 
+	console.error("[DEBUG] createHarness: waiting for parent pi startup...");
 	await waitFor(
 		"parent pi startup",
 		async () => {
 			const pane = normalizeScreen(await captureParent(harness));
-			return pane.includes("/ for commands") && pane.includes("side-agents.ts");
+			const hasCommands = pane.includes("/ for commands");
+			const hasExtension = pane.includes("side-agents.ts");
+			if (!hasCommands || !hasExtension) {
+				console.error(`[DEBUG] waitFor parent pi: pane preview: ${pane.slice(-200)}`);
+			}
+			return hasCommands && hasExtension;
 		},
 		{ timeoutMs: 90_000, intervalMs: 300 },
 	);
+	console.error("[DEBUG] createHarness: parent pi started!");
 
 	return harness;
 }
@@ -865,6 +899,7 @@ function spawnWithCapture(command, args, options = {}) {
 test("integration: /agent launch + agent-check/agent-send tools + child press-any-key close", {
 	timeout: TEST_TIMEOUT,
 }, async (t) => {
+	console.error("[DEBUG] TEST STARTED: /agent launch + agent-check/agent-send tools + child press-any-key close");
 
 	const harness = await createHarness(t);
 
