@@ -56,6 +56,7 @@ export type StartAgentParams = {
 	branchHint?: string;
 	model?: string;
 	includeSummary: boolean;
+	safe?: boolean; // true = use CCO sandbox (default), false = run Pi directly
 };
 
 export type StartAgentResult = {

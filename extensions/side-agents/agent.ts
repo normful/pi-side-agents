@@ -587,6 +587,7 @@ export async function startAgent(
 			exitFile,
 			...(modelSpec ? { modelSpec } : {}),
 			runtimeDir,
+			useCco: params.safe !== false,
 		});
 		await atomicWrite(launchScriptPath, launchScript);
 		await fs.chmod(launchScriptPath, 0o755);

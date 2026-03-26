@@ -21,12 +21,13 @@ describe("buildLaunchScript", () => {
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			modelSpec: "anthropic/claude-3-5-sonnet",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
+			useCco: true,
 		});
 
 		expect(script.startsWith("#!/usr/bin/env bash")).toBe(true);
 	});
 
-	test("checks for cco command and exits with helpful message if missing", () => {
+	test("checks for cco command and exits with helpful message if missing (useCco: true)", () => {
 		const script = buildLaunchScript({
 			agentId: "test-agent",
 			parentRepoRoot: "/repo",
@@ -36,11 +37,63 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
+			useCco: true,
 		});
 
 		expect(script).toContain("command -v cco");
 		expect(script).toContain("https://github.com/nikvdp/cco");
 		expect(script).toContain("cco' command not found");
+	});
+
+	test("does not check for cco when useCco is false", () => {
+		const script = buildLaunchScript({
+			agentId: "test-agent",
+			parentRepoRoot: "/repo",
+			stateRoot: "/repo",
+			worktreePath: "/repo/.worktrees/agent-test-agent",
+			tmuxWindowId: "@1",
+			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
+			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
+			runtimeDir: "/repo/.pi/runtime/test-agent",
+			useCco: false,
+		});
+
+		expect(script).not.toContain("command -v cco");
+		expect(script).not.toContain("https://github.com/nikvdp/cco");
+	});
+
+	test("uses cco wrapper when useCco is true", () => {
+		const script = buildLaunchScript({
+			agentId: "test-agent",
+			parentRepoRoot: "/repo",
+			stateRoot: "/repo",
+			worktreePath: "/repo/.worktrees/agent-test-agent",
+			tmuxWindowId: "@1",
+			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
+			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
+			runtimeDir: "/repo/.pi/runtime/test-agent",
+			useCco: true,
+		});
+
+		expect(script).toContain("PI_CMD=(cco --safe");
+		expect(script).toContain('pi --skill "$CHILD_SKILLS_DIR")');
+	});
+
+	test("runs pi directly without cco when useCco is false", () => {
+		const script = buildLaunchScript({
+			agentId: "test-agent",
+			parentRepoRoot: "/repo",
+			stateRoot: "/repo",
+			worktreePath: "/repo/.worktrees/agent-test-agent",
+			tmuxWindowId: "@1",
+			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
+			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
+			runtimeDir: "/repo/.pi/runtime/test-agent",
+			useCco: false,
+		});
+
+		expect(script).toContain('PI_CMD=(pi --skill "$CHILD_SKILLS_DIR")');
+		expect(script).not.toContain("cco --safe");
 	});
 
 	test("exports PI_SIDE_AGENT_ID environment variable (uses bash variable reference)", () => {
@@ -53,6 +106,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/my-test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/my-test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/my-test-agent",
+			useCco: true,
 		});
 
 		// The script defines AGENT_ID locally, then exports PI_SIDE_AGENT_ID referencing it
@@ -72,6 +126,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
+			useCco: true,
 		});
 
 		expect(script).toContain(
@@ -91,6 +146,7 @@ describe("buildLaunchScript", () => {
 				"/Users/norman/code/myproject/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/Users/norman/code/myproject/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/Users/norman/code/myproject/.pi/runtime/test-agent",
+			useCco: true,
 		});
 
 		expect(script).toContain(`export ${PI_SIDE_PARENT_REPO}="$PARENT_REPO"`);
@@ -107,6 +163,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
+			useCco: true,
 		});
 
 		expect(script).toContain(`export ${PI_SIDE_AGENTS_ROOT}="$STATE_ROOT"`);
@@ -123,6 +180,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
+			useCco: true,
 		});
 
 		expect(script).toContain(`export ${PI_SIDE_RUNTIME_DIR}="$RUNTIME_DIR"`);
@@ -140,6 +198,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/test/repo/.pi/runtime/all-envs-test/kickoff.md",
 			exitFile: "/test/repo/.pi/runtime/all-envs-test/exit.json",
 			runtimeDir: "/test/repo/.pi/runtime/all-envs-test",
+			useCco: true,
 		});
 
 		// Verify each environment variable is exported with its correct name
@@ -163,6 +222,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
+			useCco: true,
 		});
 
 		// When parentSessionId is undefined, it should be empty string
@@ -182,10 +242,11 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
+			useCco: true,
 		});
 
 		// PI_CMD is initialized with cco wrapper but MODEL_SPEC is empty, so the conditional prevents --model
-		expect(script).toContain('PI_CMD=(cco --safe --add-dir "~/.bun:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$RUNTIME_DIR:rw" --add-dir "$(dirname "$PARENT_REPO"):ro" --add-dir "$PARENT_REPO:ro" --add-dir "$STATE_ROOT:ro" pi --skill "$CHILD_SKILLS_DIR")');
+		expect(script).toContain("cco --safe");
 		expect(script).toContain("MODEL_SPEC=''");
 		// The conditional check prevents adding --model when empty
 		expect(script).toContain('if [[ -n "$MODEL_SPEC" ]]; then');
@@ -202,9 +263,10 @@ describe("buildLaunchScript", () => {
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			modelSpec: "anthropic/claude-3-5-sonnet",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
+			useCco: true,
 		});
 
-		expect(script).toContain('PI_CMD=(cco --safe --add-dir "~/.bun:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$RUNTIME_DIR:rw" --add-dir "$(dirname "$PARENT_REPO"):ro" --add-dir "$PARENT_REPO:ro" --add-dir "$STATE_ROOT:ro" pi --skill "$CHILD_SKILLS_DIR")');
+		expect(script).toContain("cco --safe");
 		expect(script).toContain('PI_CMD+=(--model "$MODEL_SPEC")');
 		expect(script).toContain("MODEL_SPEC='anthropic/claude-3-5-sonnet'");
 	});
@@ -220,6 +282,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
+			useCco: true,
 		});
 
 		// Should still export the environment variable correctly
@@ -238,6 +301,7 @@ describe("buildLaunchScript", () => {
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			modelSpec: "provider/model'with\"special",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
+			useCco: true,
 		});
 
 		// shellQuote should escape single quotes properly using '"'"' pattern
@@ -255,6 +319,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
+			useCco: true,
 		});
 
 		expect(script).toContain("write_exit()");
@@ -271,6 +336,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
+			useCco: true,
 		});
 
 		expect(script).toContain('[[ -x "$START_SCRIPT" ]]');
@@ -286,6 +352,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
+			useCco: true,
 		});
 
 		expect(script).toContain("CHILD_SKILLS_DIR");
@@ -303,6 +370,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
+			useCco: true,
 		});
 
 		// shellQuote wraps values in single quotes
@@ -329,6 +397,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
+			useCco: true,
 		});
 
 		// Verify the script has all required sections

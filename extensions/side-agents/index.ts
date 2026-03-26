@@ -62,6 +62,12 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 			model: Type.Optional(
 				Type.String({ description: "Model as provider/modelId (optional)" }),
 			),
+			safe: Type.Optional(
+				Type.Boolean({
+					description:
+						"Run with CCO filesystem sandbox (default: true). Set false for unsandboxed execution.",
+				}),
+			),
 		}),
 		async execute(
 			_toolCallId,
@@ -76,6 +82,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 					branchHint: params.branchHint,
 					...(params.model ? { model: params.model } : {}),
 					includeSummary: false,
+					...(params.safe !== undefined ? { safe: params.safe } : {}),
 				});
 				return {
 					content: [
@@ -233,23 +240,24 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 }
 
 export default function sideAgentsExtension(pi: ExtensionAPI) {
-	pi.registerCommand("agent", {
+	pi.registerCommand("safe-agent", {
 		description:
-			"Spawn a background child agent in its own tmux window/worktree: /agent [-model <provider/id>] <task>",
+			"Spawn a sandboxed child agent (uses CCO): /safe-agent [-model <provider/id>] <task>",
 		handler: async (args, ctx) => {
 			const parsed = parseAgentCommandArgs(args);
 			if (!parsed.task) {
 				ctx.hasUI &&
-					ctx.ui.notify("Usage: /agent [-model <provider/id>] <task>", "error");
+					ctx.ui.notify("Usage: /safe-agent [-model <provider/id>] <task>", "error");
 				return;
 			}
 
 			try {
-				ctx.hasUI && ctx.ui.notify("Starting side-agent…", "info");
+				ctx.hasUI && ctx.ui.notify("Starting sandboxed side-agent…", "info");
 				const started = await startAgent(pi, ctx, {
 					task: parsed.task,
 					...(parsed.model ? { model: parsed.model } : {}),
 					includeSummary: true,
+					safe: true,
 				});
 
 				const lines = [
@@ -265,7 +273,53 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 				for (const line of started.prompt.split(/\r?\n/)) {
 					lines.push(`  ${line}`);
 				}
-				renderInfoMessage(pi, ctx, "side-agent started", lines);
+				renderInfoMessage(pi, ctx, "side-agent started (sandboxed)", lines);
+				await renderStatusLine(pi, ctx).catch(() => {});
+			} catch (err) {
+				ctx.hasUI &&
+					ctx.ui.notify(
+						`Failed to start agent: ${stringifyError(err)}`,
+						"error",
+					);
+			}
+		},
+	});
+
+	pi.registerCommand("unsafe-agent", {
+		description:
+			"Spawn an unsandboxed child agent (runs Pi directly): /unsafe-agent [-model <provider/id>] <task>",
+		handler: async (args, ctx) => {
+			const parsed = parseAgentCommandArgs(args);
+			if (!parsed.task) {
+				ctx.hasUI &&
+					ctx.ui.notify("Usage: /unsafe-agent [-model <provider/id>] <task>", "error");
+				return;
+			}
+
+			try {
+				ctx.hasUI && ctx.ui.notify("Starting unsandboxed side-agent…", "info");
+				const started = await startAgent(pi, ctx, {
+					task: parsed.task,
+					...(parsed.model ? { model: parsed.model } : {}),
+					includeSummary: true,
+					safe: false,
+				});
+
+				const lines = [
+					`id: ${started.id}`,
+					`tmux window: ${started.tmuxWindowId} (#${started.tmuxWindowIndex})`,
+					`worktree: ${started.worktreePath}`,
+					`branch: ${started.branch}`,
+					`WARNING: Agent is running unsandboxed (no CCO)`,
+				];
+				for (const warning of started.warnings) {
+					lines.push(`warning: ${warning}`);
+				}
+				lines.push("", "prompt:");
+				for (const line of started.prompt.split(/\r?\n/)) {
+					lines.push(`  ${line}`);
+				}
+				renderInfoMessage(pi, ctx, "side-agent started (unsandboxed)", lines);
 				await renderStatusLine(pi, ctx).catch(() => {});
 			} catch (err) {
 				ctx.hasUI &&
