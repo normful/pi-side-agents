@@ -159,7 +159,7 @@ export async function buildKickoffPrompt(
 			timestamp: Date.now(),
 		};
 
-		const apiKey = await ctx.modelRegistry.getApiKey(ctx.model);
+		const apiKey = await ctx.modelRegistry.getApiKeyForProvider(ctx.model.provider);
 		const response = await complete(
 			ctx.model,
 			{ systemPrompt: SUMMARY_SYSTEM_PROMPT, messages: [userMessage] },

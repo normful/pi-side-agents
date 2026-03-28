@@ -209,7 +209,7 @@ async function generateSlug(
 			timestamp: Date.now(),
 		};
 
-		const apiKey = await ctx.modelRegistry.getApiKey(ctx.model);
+		const apiKey = await ctx.modelRegistry.getApiKeyForProvider(ctx.model.provider);
 		const response = await complete(
 			ctx.model,
 			{
