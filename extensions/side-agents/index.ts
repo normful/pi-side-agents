@@ -1,4 +1,5 @@
 import { basename } from "node:path";
+import { existsSync } from "node:fs";
 import type {
 	AgentToolResult,
 	ExtensionAPI,
@@ -240,6 +241,10 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 }
 
 export default function sideAgentsExtension(pi: ExtensionAPI) {
+	// Auto-register side-agent tools if the autoload trigger file exists
+	if (existsSync("/tmp/autoload-pi-side-agent-tools")) {
+		registerSideAgentTools(pi);
+	}
 	pi.registerCommand("safe-agent", {
 		description:
 			"Spawn a sandboxed child agent (uses CCO): /safe-agent [-model <provider/id>] <task>",
