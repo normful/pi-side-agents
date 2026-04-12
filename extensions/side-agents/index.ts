@@ -58,7 +58,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 			}),
 			branchHint: Type.String({
 				description:
-					"Short kebab-case branch slug, max 3 words (e.g. fix-auth-leak)",
+					"Kebab-case identifier. Avoid generic prefixes (task, feat, fix, feature). Be specific and descriptive (e.g. refresh-oauth-tokens, dashboard-load-optimization)",
 			}),
 			model: Type.Optional(
 				Type.String({ description: "Model as provider/modelId (optional)" }),
@@ -507,3 +507,4 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		await renderStatusLine(pi, ctx, { emitTransitions: false }).catch(() => {});
 	});
 }
+
