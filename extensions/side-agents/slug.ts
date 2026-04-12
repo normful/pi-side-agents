@@ -10,11 +10,6 @@ export type OrphanWorktreeLock = {
 	blockers: string[];
 };
 
-export type OrphanWorktreeLockScan = {
-	reclaimable: OrphanWorktreeLock[];
-	blocked: OrphanWorktreeLock[];
-};
-
 /** Sanitize a raw string into a kebab-case slug suitable for branch names and agent IDs. */
 export function sanitizeSlug(raw: string): string {
 	return raw
