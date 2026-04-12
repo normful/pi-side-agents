@@ -63,10 +63,10 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 			model: Type.Optional(
 				Type.String({ description: "Model as provider/modelId (optional)" }),
 			),
-			safe: Type.Optional(
+			disableSandbox: Type.Optional(
 				Type.Boolean({
 					description:
-						"Run with CCO filesystem sandbox (default: true). Set false for unsandboxed execution.",
+						"Disable CCO filesystem sandbox (default: false = sandboxed). Set true for unsandboxed execution.",
 				}),
 			),
 		}),
@@ -83,7 +83,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 					branchHint: params.branchHint,
 					...(params.model ? { model: params.model } : {}),
 					includeSummary: false,
-					...(params.safe !== undefined ? { safe: params.safe } : {}),
+					...(params.disableSandbox !== undefined ? { disableSandbox: params.disableSandbox } : {}),
 				});
 				return {
 					content: [
@@ -262,7 +262,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 					task: parsed.task,
 					...(parsed.model ? { model: parsed.model } : {}),
 					includeSummary: true,
-					safe: true,
+					disableSandbox: false,
 				});
 
 				const lines = [
@@ -307,7 +307,7 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 					task: parsed.task,
 					...(parsed.model ? { model: parsed.model } : {}),
 					includeSummary: true,
-					safe: false,
+					disableSandbox: true,
 				});
 
 				const lines = [

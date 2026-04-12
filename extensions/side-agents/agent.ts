@@ -209,7 +209,9 @@ async function generateSlug(
 			timestamp: Date.now(),
 		};
 
-		const apiKey = await ctx.modelRegistry.getApiKeyForProvider(ctx.model.provider);
+		const apiKey = await ctx.modelRegistry.getApiKeyForProvider(
+			ctx.model.provider,
+		);
 		const response = await complete(
 			ctx.model,
 			{
@@ -587,7 +589,7 @@ export async function startAgent(
 			exitFile,
 			...(modelSpec ? { modelSpec } : {}),
 			runtimeDir,
-			useCco: params.safe !== false,
+			useCco: !params.disableSandbox,
 		});
 		await atomicWrite(launchScriptPath, launchScript);
 		await fs.chmod(launchScriptPath, 0o755);
@@ -621,6 +623,7 @@ export async function startAgent(
 			branch: worktree.branch,
 			warnings: aggregatedWarnings,
 			prompt: kickoff.prompt,
+			disableSandbox: Boolean(params.disableSandbox),
 		};
 		emitKickoffPromptMessage(pi, started);
 
@@ -1023,6 +1026,7 @@ export function emitKickoffPromptMessage(
 				worktreePath: started.worktreePath,
 				branch: started.branch,
 				prompt: started.prompt,
+				disableSandbox: started.disableSandbox,
 				emittedAt: Date.now(),
 			},
 		},

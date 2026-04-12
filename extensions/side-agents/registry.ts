@@ -56,7 +56,7 @@ export type StartAgentParams = {
 	branchHint?: string;
 	model?: string;
 	includeSummary: boolean;
-	safe?: boolean; // true = use CCO sandbox (default), false = run Pi directly
+	disableSandbox?: boolean; // false = use CCO sandbox (default), true = run Pi directly
 };
 
 export type StartAgentResult = {
@@ -67,6 +67,7 @@ export type StartAgentResult = {
 	branch: string;
 	warnings: string[];
 	prompt: string;
+	disableSandbox: boolean;
 };
 
 export type PrepareRuntimeDirResult = {
@@ -81,7 +82,11 @@ export type ExitMarker = {
 };
 
 function resolveGitRoot(cwd: string): string {
-	const result = run("git", ["-C", cwd, "rev-parse", "--show-toplevel"], gitRunOpts);
+	const result = run(
+		"git",
+		["-C", cwd, "rev-parse", "--show-toplevel"],
+		gitRunOpts,
+	);
 	if (result.ok) {
 		const root = result.stdout.trim();
 		if (root.length > 0) return resolve(root);
