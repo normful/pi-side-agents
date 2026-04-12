@@ -27,8 +27,96 @@ export function sanitizeSlug(raw: string): string {
 		.join("-");
 }
 
-/** Turn a task description into a slug by taking the first 3 meaningful words. */
+/**
+ * Stop words are filtered out before slug extraction.
+ * They are common grammatical words that don't help distinguish tasks.
+ */
+const STOP_WORDS = new Set([
+	"a", "an", "the", "to", "in", "on", "at",
+	"of", "for", "and", "or", "is", "it",
+	"be", "do", "with", "by", "from", "as",
+	"that", "this", "these", "those", "will",
+	"can", "all", "any", "but", "not", "have",
+	"has", "had", "use", "used", "using",
+]);
+
+/** Pull out the meaningful (non-stop) words from a task, preserving order. */
+function meaningfulWords(task: string): string[] {
+	return task
+		.replace(/[^a-zA-Z0-9\s]/g, " ")
+		.split(/\s+/)
+		.map((w) => w.toLowerCase())
+		.filter((w) => w.length > 0 && !STOP_WORDS.has(w));
+}
+
+/**
+ * Extract a collision-free slug for a task by trying tail-first sliding windows.
+ *
+ * Strategy:
+ *  1. Prefer 2-word tail windows (most specific — noun + modifier).
+ *  2. Then 3-word tail windows (verb/object/modifier).
+ *  3. Then 1-word tail windows.
+ *  4. Finally 3-word head windows as a last resort.
+ *  5. If every candidate collides, fall back to numeric deduplication.
+ *
+ * Within each size group, windows are ordered from tail-most to head-most,
+ * so the most specific words always win first.
+ *
+ * Examples (empty existing):
+ *   "write tests for login page"  → "login-page"     (2-word tail window)
+ *   "write tests for signup page"  → "signup-page"    (2-word tail window)
+ *   "implement dark mode"          → "dark-mode"      (2-word tail window)
+ *   "fix auth bug"                 → "auth-bug"       (2-word tail window)
+ *   "fix login bug"                → "login-bug"      (2-word tail window)
+ *
+ * Examples (with collisions):
+ *   existing = { "login-page" }
+ *   "write tests for login page"  → "login-page-2"   (collision → dedup)
+ *   "write tests for signup"      → "signup"         (2-word tail, unique)
+ *   "write tests for login"       → "login"          (1-word tail, unique)
+ */
 export function slugFromTask(task: string): string {
+	return slugFromTaskWithExisting(task, new Set());
+}
+
+/**
+ * Like slugFromTask but checks against a set of already-taken slugs to avoid
+ * generating a colliding slug in the first place.
+ */
+export function slugFromTaskWithExisting(
+	task: string,
+	existing: Set<string>,
+): string {
+	const words = meaningfulWords(task);
+	if (words.length === 0) return "agent";
+
+	// Collect all windows grouped by size, then flatten in strict priority order:
+	// all size-2 (tail→head), then all size-3 (tail→head), then all size-1 (tail→head).
+	// Within each size group, iterate start tail→head so the most specific words
+	// (those closest to the end of the task) appear first.
+	const candidates: string[] = [];
+	for (const size of [2, 3, 1] as const) {
+		if (size > words.length) continue;
+		for (let start = words.length - size; start >= 0; start--) {
+			const window = words.slice(start, start + size);
+			candidates.push(window.join("-"));
+		}
+	}
+
+	// Return the first candidate that doesn't collide.
+	for (const candidate of candidates) {
+		if (candidate.length > 0 && !existing.has(candidate)) {
+			return candidate;
+		}
+	}
+
+	// Everything collides. Use the best candidate + numeric dedup.
+	const base = candidates[0] ?? "agent";
+	return deduplicateSlug(base, existing);
+}
+
+/** Turn a task description into a slug by taking the first 3 meaningful words. */
+export function slugFromTaskLegacy(task: string): string {
 	const stopWords = new Set([
 		"a",
 		"an",

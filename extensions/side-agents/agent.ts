@@ -32,6 +32,7 @@ import {
 	existingAgentIds,
 	sanitizeSlug,
 	slugFromTask,
+	slugFromTaskWithExisting,
 } from "./slug.js";
 import {
 	buildLaunchScript,
@@ -187,10 +188,13 @@ export function normalizeAgentId(raw: string): string {
 async function generateSlug(
 	ctx: ExtensionContext,
 	task: string,
+	existing?: Set<string>,
 ): Promise<{ slug: string; warning?: string }> {
 	if (!ctx.model) {
 		return {
-			slug: slugFromTask(task),
+			slug: existing
+				? slugFromTaskWithExisting(task, existing)
+				: slugFromTask(task),
 			warning:
 				"No model available for slug generation; used heuristic fallback.",
 		};
@@ -235,12 +239,16 @@ async function generateSlug(
 		if (slug) return { slug };
 
 		return {
-			slug: slugFromTask(task),
+			slug: existing
+				? slugFromTaskWithExisting(task, existing)
+				: slugFromTask(task),
 			warning: "LLM returned empty slug; used heuristic fallback.",
 		};
 	} catch (err) {
 		return {
-			slug: slugFromTask(task),
+			slug: existing
+				? slugFromTaskWithExisting(task, existing)
+				: slugFromTask(task),
 			warning: `Slug generation failed: ${stringifyError(err)}. Used heuristic fallback.`,
 		};
 	}
@@ -468,19 +476,27 @@ export async function startAgent(
 	try {
 		await ensureDir(getMetaDir(stateRoot));
 
+		// First, get existing agent IDs to avoid collisions
+		let existing: Set<string> = new Set();
+		await mutateRegistry(stateRoot, async (registry) => {
+			existing = existingAgentIds(registry, repoRoot);
+		});
+
 		let slug: string;
 		if (params.branchHint) {
 			slug = sanitizeSlug(params.branchHint);
-			if (!slug) slug = slugFromTask(params.task);
+			if (!slug) slug = slugFromTaskWithExisting(params.task, existing);
 		} else {
-			const generated = await generateSlug(ctx, params.task);
+			const generated = await generateSlug(ctx, params.task, existing);
 			slug = generated.slug;
 			if (generated.warning) aggregatedWarnings.push(generated.warning);
 		}
 
+		// slug is already collision-free from slugFromTaskWithExisting,
+		// but sanitizeSlug and LLM path may need deduplication
+		agentId = deduplicateSlug(slug, existing);
+
 		await mutateRegistry(stateRoot, async (registry) => {
-			const existing = existingAgentIds(registry, repoRoot);
-			agentId = deduplicateSlug(slug, existing);
 			registry.agents[agentId] = {
 				id: agentId,
 				...(parentSessionId ? { parentSessionId } : {}),
