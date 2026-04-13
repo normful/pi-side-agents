@@ -50,6 +50,7 @@ export type AgentRecord = {
 export type RegistryFile = {
 	version: 1;
 	agents: Record<string, AgentRecord>;
+	worktrees?: Record<string, unknown>;
 };
 
 export type StartAgentParams = {

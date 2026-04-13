@@ -12,7 +12,6 @@ import {
 	updateWorktreeLock,
 	writeWorktreeLock,
 } from "./worktree.js";
-import { type CommandResult } from "./utils.js";
 import { fileExists } from "./fs.js";
 
 describe("writeWorktreeLock", () => {
@@ -277,7 +276,7 @@ describe("scanOrphanWorktreeLocks", () => {
 	});
 
 	test("returns empty scan when no worktrees exist", async () => {
-		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
+		const emptyRegistry: RegistryFile = { version: 1, agents: {}, worktrees: {} };
 
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
 
@@ -294,7 +293,7 @@ describe("scanOrphanWorktreeLocks", () => {
 			mainRepo,
 		);
 
-		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
+		const emptyRegistry: RegistryFile = { version: 1, agents: {}, worktrees: {} };
 
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
 
@@ -319,7 +318,7 @@ describe("scanOrphanWorktreeLocks", () => {
 			JSON.stringify({ agentId, pid: 99999 }),
 		);
 
-		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
+		const emptyRegistry: RegistryFile = { version: 1, agents: {}, worktrees: {} };
 
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
 
@@ -345,7 +344,17 @@ describe("scanOrphanWorktreeLocks", () => {
 
 		// Registry has the agent - should be ignored
 		const registry: RegistryFile = {
-			agents: { [agentId]: { sessionId: "sess-123" } },
+			version: 1,
+			agents: {
+				[agentId]: {
+					id: agentId,
+					task: "test",
+					status: "running" as const,
+					startedAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+					parentSessionId: "sess-123",
+				},
+			},
 			worktrees: {},
 		};
 
@@ -371,7 +380,7 @@ describe("scanOrphanWorktreeLocks", () => {
 			JSON.stringify({ agentId, pid: process.pid }),
 		);
 
-		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
+		const emptyRegistry: RegistryFile = { version: 1, agents: {}, worktrees: {} };
 
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
 
@@ -397,7 +406,7 @@ describe("scanOrphanWorktreeLocks", () => {
 			JSON.stringify({ agentId, tmuxWindowId: "window-dead" }),
 		);
 
-		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
+		const emptyRegistry: RegistryFile = { version: 1, agents: {}, worktrees: {} };
 
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
 
@@ -424,7 +433,7 @@ describe("scanOrphanWorktreeLocks", () => {
 			"not valid json {{{",
 		);
 
-		const emptyRegistry: RegistryFile = { agents: {}, worktrees: {} };
+		const emptyRegistry: RegistryFile = { version: 1, agents: {}, worktrees: {} };
 
 		// Should not throw
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
