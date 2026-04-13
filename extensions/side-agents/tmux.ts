@@ -100,8 +100,10 @@ export async function tmuxWaitForShellReady(
 	while (Date.now() - started < timeoutMs) {
 		const captured = run("tmux", ["capture-pane", "-p", "-t", windowId]);
 		if (captured.ok) {
-			const lines = captured.stdout.split(/\r?\n/).filter((l) => l.trim().length > 0);
-			if (lines.some((l) => /[\$#%>]\s*$/.test(l))) {
+			const lines = captured.stdout
+				.split(/\r?\n/)
+				.filter((l) => l.trim().length > 0);
+			if (lines.some((l) => /[$#%>]\s*$/.test(l))) {
 				return;
 			}
 		}

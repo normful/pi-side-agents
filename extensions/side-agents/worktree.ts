@@ -1,16 +1,10 @@
 import { promises as fs } from "node:fs";
-import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { atomicWrite, ensureDir, readJsonFile } from "./fs.js";
 import type { RegistryFile } from "./registry.js";
-import {
-	isTerminalStatus,
-	loadRegistry,
-} from "./registry.js";
-import {
-	isPidAlive,
-	parseOptionalPid,
-} from "./slug.js";
+import { isTerminalStatus, loadRegistry } from "./registry.js";
+import { isPidAlive, parseOptionalPid } from "./slug.js";
 import {
 	gitRunOpts,
 	nowIso,
@@ -49,7 +43,11 @@ export async function cleanupWorktreeLockBestEffort(
 	if (agentId) {
 		try {
 			const lock = await readJsonFile<Record<string, unknown>>(lockPath);
-			if (lock && typeof lock["agentId"] === "string" && lock["agentId"] !== agentId) {
+			if (
+				lock &&
+				typeof lock.agentId === "string" &&
+				lock.agentId !== agentId
+			) {
 				return;
 			}
 		} catch {
@@ -60,13 +58,11 @@ export async function cleanupWorktreeLockBestEffort(
 }
 
 export function listRegisteredWorktrees(repoRoot: string): Set<string> {
-	const result = runOrThrow("git", [
-		"-C",
-		repoRoot,
-		"worktree",
-		"list",
-		"--porcelain",
-	], gitRunOpts);
+	const result = runOrThrow(
+		"git",
+		["-C", repoRoot, "worktree", "list", "--porcelain"],
+		gitRunOpts,
+	);
 	const set = new Set<string>();
 	for (const line of result.stdout.split(/\r?\n/)) {
 		if (line.startsWith("worktree ")) {
@@ -130,8 +126,8 @@ export async function scanOrphanWorktreeLocks(
 	}
 
 	// Filter to side-agent/ worktrees
-	const sideAgentWorktrees = worktrees.filter(
-		(wt) => wt.branch && wt.branch.startsWith("refs/heads/side-agent/"),
+	const sideAgentWorktrees = worktrees.filter((wt) =>
+		wt.branch?.startsWith("refs/heads/side-agent/"),
 	);
 
 	const reclaimable: OrphanWorktreeLock[] = [];
@@ -143,14 +139,14 @@ export async function scanOrphanWorktreeLocks(
 
 		const raw = (await readJsonFile<Record<string, unknown>>(lockPath)) ?? {};
 		const lockAgentId =
-			typeof raw["agentId"] === "string" ? raw["agentId"] : undefined;
+			typeof raw.agentId === "string" ? raw.agentId : undefined;
 		if (lockAgentId && registry.agents[lockAgentId]) {
 			continue;
 		}
 
-		const lockPid = parseOptionalPid(raw["pid"]);
+		const lockPid = parseOptionalPid(raw.pid);
 		const lockTmuxWindowId =
-			typeof raw["tmuxWindowId"] === "string" ? raw["tmuxWindowId"] : undefined;
+			typeof raw.tmuxWindowId === "string" ? raw.tmuxWindowId : undefined;
 
 		const blockers: string[] = [];
 		if (isPidAlive(lockPid)) {
@@ -260,12 +256,11 @@ export async function allocateWorktree(options: {
 
 	const warnings: string[] = [];
 	const branch = `side-agent/${agentId}`;
-	const mainHead = runOrThrow("git", [
-		"-C",
-		repoRoot,
-		"rev-parse",
-		"HEAD",
-	], gitRunOpts).stdout.trim();
+	const mainHead = runOrThrow(
+		"git",
+		["-C", repoRoot, "rev-parse", "HEAD"],
+		gitRunOpts,
+	).stdout.trim();
 
 	// Use mkdtemp to create a fresh worktree directory in tmp
 	// Format: <tmpdir>/pi-side-agent-worktrees/<repoBasename>-<4-digit-index>
@@ -285,14 +280,18 @@ export async function allocateWorktree(options: {
 	if (isRegistered) {
 		// Remember old branch so we can try to clean it up after switching away.
 		const getCurrentBranch = (cwd: string): string => {
-			const result = run("git", ["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"], gitRunOpts);
+			const result = run(
+				"git",
+				["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"],
+				gitRunOpts,
+			);
 			if (!result.ok) return "";
 			const branch = result.stdout.trim();
 			if (!branch || branch === "HEAD") return "";
 			return branch;
 		};
 
-		const oldBranch = getCurrentBranch(chosenPath);;
+		const oldBranch = getCurrentBranch(chosenPath);
 
 		run("git", ["-C", chosenPath, "merge", "--abort"], gitRunOpts);
 		runOrThrow(
@@ -312,16 +311,11 @@ export async function allocateWorktree(options: {
 			run("git", ["-C", repoRoot, "branch", "-d", oldBranch], gitRunOpts);
 		}
 	} else {
-		runOrThrow("git", [
-			"-C",
-			repoRoot,
-			"worktree",
-			"add",
-			"-B",
-			branch,
-			chosenPath,
-			mainHead,
-		], gitRunOpts);
+		runOrThrow(
+			"git",
+			["-C", repoRoot, "worktree", "add", "-B", branch, chosenPath, mainHead],
+			gitRunOpts,
+		);
 	}
 
 	// Guard against double-allocation: if the registry already tracks an active

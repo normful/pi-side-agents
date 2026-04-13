@@ -1,5 +1,5 @@
-import { basename } from "node:path";
 import { existsSync } from "node:fs";
+import { basename } from "node:path";
 import type {
 	AgentToolResult,
 	ExtensionAPI,
@@ -84,7 +84,9 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 					branchHint: params.branchHint,
 					...(params.model ? { model: params.model } : {}),
 					includeSummary: false,
-					...(params.disableSandbox !== undefined ? { disableSandbox: params.disableSandbox } : {}),
+					...(params.disableSandbox !== undefined
+						? { disableSandbox: params.disableSandbox }
+						: {}),
 				});
 				return {
 					content: [
@@ -253,7 +255,10 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 			const parsed = parseAgentCommandArgs(args);
 			if (!parsed.task) {
 				ctx.hasUI &&
-					ctx.ui.notify("Usage: /safe-agent [-model <provider/id>] <task>", "error");
+					ctx.ui.notify(
+						"Usage: /safe-agent [-model <provider/id>] <task>",
+						"error",
+					);
 				return;
 			}
 
@@ -298,7 +303,10 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 			const parsed = parseAgentCommandArgs(args);
 			if (!parsed.task) {
 				ctx.hasUI &&
-					ctx.ui.notify("Usage: /unsafe-agent [-model <provider/id>] <task>", "error");
+					ctx.ui.notify(
+						"Usage: /unsafe-agent [-model <provider/id>] <task>",
+						"error",
+					);
 				return;
 			}
 
@@ -517,4 +525,3 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		await renderStatusLine(pi, ctx, { emitTransitions: false }).catch(() => {});
 	});
 }
-

@@ -101,7 +101,7 @@ describe("sanitizeBacklogLines", () => {
 	test("truncates long lines to BACKLOG_LINE_MAX_CHARS", () => {
 		const lines = ["a".repeat(500)];
 		const result = sanitizeBacklogLines(lines);
-		expect(result[0]!.length).toBeLessThanOrEqual(240);
+		expect(result[0]?.length).toBeLessThanOrEqual(240);
 	});
 
 	test("limits total characters to BACKLOG_TOTAL_MAX_CHARS", () => {

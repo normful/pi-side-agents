@@ -1,11 +1,14 @@
-import { describe, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { tmuxWaitForShellReady } from "./tmux.js";
 
 describe("tmuxWaitForShellReady", () => {
 	// Helper to temporarily replace the run function
-	function withMockedRun(mockFn: typeof runOriginal, fn: () => Promise<void>) {
+	function _withMockedRun(
+		_mockFn: typeof runOriginal,
+		fn: () => Promise<void>,
+	) {
 		return async () => {
-			const original = await import("./utils.js");
+			const _original = await import("./utils.js");
 			// We can't easily swap the imported run, so we'll test the logic
 			// by checking what tmux commands WOULD be called
 			await fn();
@@ -16,7 +19,7 @@ describe("tmuxWaitForShellReady", () => {
 		// We test the logic by calling tmuxWaitForShellReady with a mock-like approach
 		// Since tmuxWaitForShellReady uses `run` internally, we need to verify
 		// the regex pattern it uses to detect prompts
-		const promptPattern = /[\$#%>]\s*$/;
+		const promptPattern = /[$#%>]\s*$/;
 
 		// Dollar prompt should match
 		expect("user@host $".trim()).toMatch(promptPattern);
@@ -25,7 +28,7 @@ describe("tmuxWaitForShellReady", () => {
 	});
 
 	test("tmuxWaitForShellReady resolves when hash prompt detected", async () => {
-		const promptPattern = /[\$#%>]\s*$/;
+		const promptPattern = /[$#%>]\s*$/;
 
 		// Hash (root) prompt should match
 		expect("root@host #".trim()).toMatch(promptPattern);
@@ -33,7 +36,7 @@ describe("tmuxWaitForShellReady", () => {
 	});
 
 	test("tmuxWaitForShellReady ignores empty lines", async () => {
-		const promptPattern = /[\$#%>]\s*$/;
+		const promptPattern = /[$#%>]\s*$/;
 		const lines = ["", "   ", "some output", "more text"];
 
 		// None of these should match the prompt pattern
@@ -63,13 +66,13 @@ describe("tmuxWaitForShellReady", () => {
 
 	// Additional tests for the underlying pattern matching logic
 	test("percent prompt is detected", () => {
-		const promptPattern = /[\$#%>]\s*$/;
+		const promptPattern = /[$#%>]\s*$/;
 		expect("tcsh% ".trim()).toMatch(promptPattern);
 		expect("%".trim()).toMatch(promptPattern);
 	});
 
 	test("greater-than prompt is detected", () => {
-		const promptPattern = /[\$#%>]\s*$/;
+		const promptPattern = /[$#%>]\s*$/;
 		expect("> ".trim()).toMatch(promptPattern);
 		expect(">".trim()).toMatch(promptPattern);
 	});
@@ -78,12 +81,12 @@ describe("tmuxWaitForShellReady", () => {
 		// The function filters empty lines before checking for prompts
 		const lines = "line1\nline2\nuser@host $\nline3".split("\n");
 		const nonEmpty = lines.filter((l) => l.trim().length > 0);
-		const hasPrompt = nonEmpty.some((l) => /[\$#%>]\s*$/.test(l));
+		const hasPrompt = nonEmpty.some((l) => /[$#%>]\s*$/.test(l));
 		expect(hasPrompt).toBe(true);
 	});
 });
 
-import { describe, expect, test } from "bun:test";
+import { describe } from "bun:test";
 import { spawnSync } from "node:child_process";
 import {
 	buildLaunchScript,

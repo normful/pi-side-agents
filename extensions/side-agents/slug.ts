@@ -27,12 +27,41 @@ export function sanitizeSlug(raw: string): string {
  * They are common grammatical words that don't help distinguish tasks.
  */
 const STOP_WORDS = new Set([
-	"a", "an", "the", "to", "in", "on", "at",
-	"of", "for", "and", "or", "is", "it",
-	"be", "do", "with", "by", "from", "as",
-	"that", "this", "these", "those", "will",
-	"can", "all", "any", "but", "not", "have",
-	"has", "had", "use", "used", "using",
+	"a",
+	"an",
+	"the",
+	"to",
+	"in",
+	"on",
+	"at",
+	"of",
+	"for",
+	"and",
+	"or",
+	"is",
+	"it",
+	"be",
+	"do",
+	"with",
+	"by",
+	"from",
+	"as",
+	"that",
+	"this",
+	"these",
+	"those",
+	"will",
+	"can",
+	"all",
+	"any",
+	"but",
+	"not",
+	"have",
+	"has",
+	"had",
+	"use",
+	"used",
+	"using",
 ]);
 
 /** Pull out the meaningful (non-stop) words from a task, preserving order. */
@@ -148,13 +177,11 @@ export function existingAgentIds(
 ): Set<string> {
 	const ids = new Set<string>(Object.keys(registry.agents));
 
-	const listed = run("git", [
-		"-C",
-		repoRoot,
-		"worktree",
-		"list",
-		"--porcelain",
-	], gitRunOpts);
+	const listed = run(
+		"git",
+		["-C", repoRoot, "worktree", "list", "--porcelain"],
+		gitRunOpts,
+	);
 	if (listed.ok) {
 		for (const line of listed.stdout.split(/\r?\n/)) {
 			if (!line.startsWith("branch ")) continue;

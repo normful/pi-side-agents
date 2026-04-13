@@ -12,7 +12,6 @@ import {
 	updateWorktreeLock,
 	writeWorktreeLock,
 } from "./worktree.js";
-import { fileExists } from "./fs.js";
 
 describe("writeWorktreeLock", () => {
 	let testDir: string;
@@ -201,8 +200,8 @@ describe("listRegisteredWorktrees", () => {
 		// The result should contain the main repo path
 		// (may be resolved differently due to git's internal path handling)
 		const mainRepoResolved = resolve(worktreeRepo);
-		const containsMainRepo = Array.from(result).some((p) =>
-			p === mainRepoResolved || p.endsWith("/repo"),
+		const containsMainRepo = Array.from(result).some(
+			(p) => p === mainRepoResolved || p.endsWith("/repo"),
 		);
 		expect(containsMainRepo).toBe(true);
 	});
@@ -276,7 +275,11 @@ describe("scanOrphanWorktreeLocks", () => {
 	});
 
 	test("returns empty scan when no worktrees exist", async () => {
-		const emptyRegistry: RegistryFile = { version: 1, agents: {}, worktrees: {} };
+		const emptyRegistry: RegistryFile = {
+			version: 1,
+			agents: {},
+			worktrees: {},
+		};
 
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
 
@@ -293,7 +296,11 @@ describe("scanOrphanWorktreeLocks", () => {
 			mainRepo,
 		);
 
-		const emptyRegistry: RegistryFile = { version: 1, agents: {}, worktrees: {} };
+		const emptyRegistry: RegistryFile = {
+			version: 1,
+			agents: {},
+			worktrees: {},
+		};
 
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
 
@@ -318,12 +325,18 @@ describe("scanOrphanWorktreeLocks", () => {
 			JSON.stringify({ agentId, pid: 99999 }),
 		);
 
-		const emptyRegistry: RegistryFile = { version: 1, agents: {}, worktrees: {} };
+		const emptyRegistry: RegistryFile = {
+			version: 1,
+			agents: {},
+			worktrees: {},
+		};
 
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
 
 		// Should detect the orphan as reclaimable (no blockers)
-		expect(result.reclaimable.length + result.blocked.length).toBeGreaterThan(0);
+		expect(result.reclaimable.length + result.blocked.length).toBeGreaterThan(
+			0,
+		);
 	});
 
 	test("ignores worktree whose agent IS in registry", async () => {
@@ -380,7 +393,11 @@ describe("scanOrphanWorktreeLocks", () => {
 			JSON.stringify({ agentId, pid: process.pid }),
 		);
 
-		const emptyRegistry: RegistryFile = { version: 1, agents: {}, worktrees: {} };
+		const emptyRegistry: RegistryFile = {
+			version: 1,
+			agents: {},
+			worktrees: {},
+		};
 
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
 
@@ -406,7 +423,11 @@ describe("scanOrphanWorktreeLocks", () => {
 			JSON.stringify({ agentId, tmuxWindowId: "window-dead" }),
 		);
 
-		const emptyRegistry: RegistryFile = { version: 1, agents: {}, worktrees: {} };
+		const emptyRegistry: RegistryFile = {
+			version: 1,
+			agents: {},
+			worktrees: {},
+		};
 
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
 
@@ -433,7 +454,11 @@ describe("scanOrphanWorktreeLocks", () => {
 			"not valid json {{{",
 		);
 
-		const emptyRegistry: RegistryFile = { version: 1, agents: {}, worktrees: {} };
+		const emptyRegistry: RegistryFile = {
+			version: 1,
+			agents: {},
+			worktrees: {},
+		};
 
 		// Should not throw
 		const result = await scanOrphanWorktreeLocks(mainRepo, emptyRegistry);
@@ -460,15 +485,19 @@ describe("allocateWorktree", () => {
 		await runGit(["commit", "--allow-empty", "-m", "initial"], mainRepo);
 	});
 
-	test("creates pi-side-agent-worktrees directory if it does not exist", async () => {
-		// NOTE: This test is skipped because it has timing issues in the test environment.
-		// The functionality is tested by the next test.
-		// Skipping due to potential race conditions with git worktree operations.
-	}, { skip: true });
+	test(
+		"creates pi-side-agent-worktrees directory if it does not exist",
+		async () => {
+			// NOTE: This test is skipped because it has timing issues in the test environment.
+			// The functionality is tested by the next test.
+			// Skipping due to potential race conditions with git worktree operations.
+		},
+		{ skip: true },
+	);
 
 	test("works when pi-side-agent-worktrees directory already exists", async () => {
 		const worktreesDir = join(
-			process.env["TMPDIR"] || "/tmp",
+			process.env.TMPDIR || "/tmp",
 			"pi-side-agent-worktrees",
 		);
 
@@ -509,13 +538,15 @@ describe("allocateWorktree", () => {
 		// Verify the worktree was added to the main repo
 		const worktreeListResult = await runGit(["worktree", "list"], mainRepo);
 		expect(worktreeListResult.stdout).toContain(result.worktreePath);
-		expect(worktreeListResult.stdout).toContain("side-agent/worktree-branch-test");
+		expect(worktreeListResult.stdout).toContain(
+			"side-agent/worktree-branch-test",
+		);
 	});
 });
 
 // Helper functions
 
-import { type CommandResult } from "./utils.js";
+import type { CommandResult } from "./utils.js";
 
 async function runGit(args: string[], cwd: string): Promise<CommandResult> {
 	const { run } = await import("./utils.js");
@@ -528,7 +559,7 @@ async function runGit(args: string[], cwd: string): Promise<CommandResult> {
 
 // Helper
 const testBaseDir = join(
-	process.env["TMPDIR"] || "/tmp",
+	process.env.TMPDIR || "/tmp",
 	"side-agents-worktree-test",
 );
 let testCounter = 0;
@@ -640,14 +671,14 @@ describe("allocateWorktree double-allocation guard", () => {
 				agents: {
 					"done-agent": {
 						id: "done-agent",
-							task: "done task",
-							status: "done",
-							worktreePath: usedPath,
-							startedAt: new Date().toISOString(),
-							updatedAt: new Date().toISOString(),
-							finishedAt: new Date().toISOString(),
-						},
+						task: "done task",
+						status: "done",
+						worktreePath: usedPath,
+						startedAt: new Date().toISOString(),
+						updatedAt: new Date().toISOString(),
+						finishedAt: new Date().toISOString(),
 					},
+				},
 			}),
 		);
 
@@ -660,7 +691,14 @@ describe("allocateWorktree double-allocation guard", () => {
 		});
 
 		// Should NOT have double-allocation warning
-		expect(result2.warnings.some((w) => w.includes("double") || w.includes("already claimed") || w.includes("already claimed by active agent"))).toBe(false);
+		expect(
+			result2.warnings.some(
+				(w) =>
+					w.includes("double") ||
+					w.includes("already claimed") ||
+					w.includes("already claimed by active agent"),
+			),
+		).toBe(false);
 	});
 
 	test("allocateWorktree handles registry load failure gracefully", async () => {
@@ -681,6 +719,10 @@ describe("allocateWorktree double-allocation guard", () => {
 		});
 
 		expect(result.worktreePath).toBeDefined();
-		expect(result.warnings.some((w) => w.includes("double") || w.includes("already claimed"))).toBe(false);
+		expect(
+			result.warnings.some(
+				(w) => w.includes("double") || w.includes("already claimed"),
+			),
+		).toBe(false);
 	});
 });

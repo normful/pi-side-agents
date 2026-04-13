@@ -1,7 +1,14 @@
-import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
+import {
+	afterAll,
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	test,
+} from "bun:test";
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
 	modeSpecToModelSpec,
 	normalizeAgentId,
@@ -10,9 +17,7 @@ import {
 	statusColorRole,
 	statusShort,
 } from "./agent.js";
-import {
-	getMetaDir,
-} from "./registry.js";
+import { getMetaDir } from "./registry.js";
 
 describe("statusShort", () => {
 	test("returns abbreviated status", () => {
@@ -150,7 +155,10 @@ describe("refreshAllAgents no-op", () => {
 	let testDir: string;
 
 	async function setupTestDir(): Promise<string> {
-		const dir = join(tmpdir(), `agent-refresh-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		const dir = join(
+			tmpdir(),
+			`agent-refresh-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		await mkdir(dir, { recursive: true });
 		return dir;
 	}
@@ -204,7 +212,10 @@ describe("readModesFile", () => {
 	let testDir: string;
 
 	async function setupTestDir(): Promise<string> {
-		const dir = join(tmpdir(), `modes-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		const dir = join(
+			tmpdir(),
+			`modes-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		await mkdir(dir, { recursive: true });
 		return dir;
 	}
@@ -234,20 +245,27 @@ describe("readModesFile", () => {
 
 		const result = await readModesFile(testDir);
 		expect(result).toBeDefined();
-		expect(result!.path).toContain(".pi/modes.json");
-		expect(result!.parsed.modes).toBeDefined();
-		expect(result!.parsed.modes!["test"].provider).toBe("anthropic");
+		expect(result?.path).toContain(".pi/modes.json");
+		expect(result?.parsed.modes).toBeDefined();
+		expect(result?.parsed.modes?.test.provider).toBe("anthropic");
 	});
 
 	test("readModesFile falls back to global modes.json", async () => {
 		const { readModesFile } = await import("./agent.js");
 		// Use a completely separate directory for this test
-		const fallbackTestDir = join(tmpdir(), `modes-fallback-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		const fallbackTestDir = join(
+			tmpdir(),
+			`modes-fallback-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		await mkdir(fallbackTestDir, { recursive: true });
 
 		// PI_CODING_AGENT_DIR IS the agent directory (e.g., ~/.pi/agent)
 		// So modes.json should be at <PI_CODING_AGENT_DIR>/modes.json
-		const globalAgentDir = join(tmpdir(), "pi-agent-global", Date.now().toString());
+		const globalAgentDir = join(
+			tmpdir(),
+			"pi-agent-global",
+			Date.now().toString(),
+		);
 		await mkdir(globalAgentDir, { recursive: true });
 		await writeFile(
 			join(globalAgentDir, "modes.json"),
@@ -260,20 +278,20 @@ describe("readModesFile", () => {
 		);
 
 		// Set the env var to point to the agent directory
-		const original = process.env["PI_CODING_AGENT_DIR"];
-		process.env["PI_CODING_AGENT_DIR"] = globalAgentDir;
+		const original = process.env.PI_CODING_AGENT_DIR;
+		process.env.PI_CODING_AGENT_DIR = globalAgentDir;
 
 		try {
 			// No project file exists, should fall back to global
 			const result = await readModesFile(fallbackTestDir);
 			expect(result).toBeDefined();
-			expect(result!.path).toContain("modes.json");
-			expect(result!.parsed.modes!["global"].provider).toBe("openai");
+			expect(result?.path).toContain("modes.json");
+			expect(result?.parsed.modes?.global.provider).toBe("openai");
 		} finally {
 			if (original !== undefined) {
-				process.env["PI_CODING_AGENT_DIR"] = original;
+				process.env.PI_CODING_AGENT_DIR = original;
 			} else {
-				delete process.env["PI_CODING_AGENT_DIR"];
+				delete process.env.PI_CODING_AGENT_DIR;
 			}
 			await rm(fallbackTestDir, { recursive: true, force: true });
 			await rm(globalAgentDir, { recursive: true, force: true });
@@ -301,8 +319,8 @@ describe("readModesFile", () => {
 		testDir = await setupTestDir();
 
 		// Clear the env var to ensure no fallback
-		const original = process.env["PI_CODING_AGENT_DIR"];
-		delete process.env["PI_CODING_AGENT_DIR"];
+		const original = process.env.PI_CODING_AGENT_DIR;
+		delete process.env.PI_CODING_AGENT_DIR;
 
 		try {
 			// No project file, no global file
@@ -310,7 +328,7 @@ describe("readModesFile", () => {
 			expect(result).toBeUndefined();
 		} finally {
 			if (original !== undefined) {
-				process.env["PI_CODING_AGENT_DIR"] = original;
+				process.env.PI_CODING_AGENT_DIR = original;
 			}
 		}
 	});
@@ -318,7 +336,10 @@ describe("readModesFile", () => {
 
 describe("modeSpecToModelSpec", () => {
 	test("modeSpecToModelSpec builds spec without thinkingLevel", () => {
-		const result = modeSpecToModelSpec({ provider: "anthropic", modelId: "claude-3" });
+		const result = modeSpecToModelSpec({
+			provider: "anthropic",
+			modelId: "claude-3",
+		});
 		expect(result).toBe("anthropic/claude-3");
 	});
 
@@ -345,7 +366,10 @@ describe("inferCurrentModeModelSpec", () => {
 	let testDir: string;
 
 	async function setupTestDir(): Promise<string> {
-		const dir = join(tmpdir(), `infer-mode-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		const dir = join(
+			tmpdir(),
+			`infer-mode-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		await mkdir(dir, { recursive: true });
 		return dir;
 	}
@@ -451,7 +475,10 @@ describe("resolveModelSpecForChild", () => {
 		const { resolveModelSpecForChild } = await import("./agent.js");
 
 		// Mock ctx with modes.json support
-		const testDir = join(tmpdir(), `resolve-model-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		const testDir = join(
+			tmpdir(),
+			`resolve-model-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		await mkdir(testDir, { recursive: true });
 		await mkdir(join(testDir, ".pi"), { recursive: true });
 		await writeFile(
@@ -491,7 +518,10 @@ describe("refreshOneAgentRuntime crash lock behavior", () => {
 	let testDir: string;
 
 	async function setupTestDir(): Promise<string> {
-		const dir = join(tmpdir(), `crash-lock-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		const dir = join(
+			tmpdir(),
+			`crash-lock-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		await mkdir(dir, { recursive: true });
 		return dir;
 	}
@@ -533,7 +563,9 @@ describe("refreshOneAgentRuntime crash lock behavior", () => {
 		expect(result.removeFromRegistry).toBe(true);
 
 		// Lock should be cleaned
-		const lockExists = await Bun.file(join(worktreePath, ".pi", "active.lock")).exists();
+		const lockExists = await Bun.file(
+			join(worktreePath, ".pi", "active.lock"),
+		).exists();
 		expect(lockExists).toBe(false);
 	});
 
@@ -551,7 +583,10 @@ describe("refreshOneAgentRuntime crash lock behavior", () => {
 
 		// Create exit marker with code 0
 		const exitFile = join(testDir, "exit.json");
-		await writeFile(exitFile, JSON.stringify({ exitCode: 0, finishedAt: new Date().toISOString() }));
+		await writeFile(
+			exitFile,
+			JSON.stringify({ exitCode: 0, finishedAt: new Date().toISOString() }),
+		);
 
 		const record = {
 			id: "success-agent",
@@ -569,7 +604,9 @@ describe("refreshOneAgentRuntime crash lock behavior", () => {
 		expect(result.removeFromRegistry).toBe(true);
 
 		// Lock should be cleaned
-		const lockExists = await Bun.file(join(worktreePath, ".pi", "active.lock")).exists();
+		const lockExists = await Bun.file(
+			join(worktreePath, ".pi", "active.lock"),
+		).exists();
 		expect(lockExists).toBe(false);
 	});
 
@@ -587,7 +624,10 @@ describe("refreshOneAgentRuntime crash lock behavior", () => {
 
 		// Create exit marker with non-zero code
 		const exitFile = join(testDir, "exit.json");
-		await writeFile(exitFile, JSON.stringify({ exitCode: 1, finishedAt: new Date().toISOString() }));
+		await writeFile(
+			exitFile,
+			JSON.stringify({ exitCode: 1, finishedAt: new Date().toISOString() }),
+		);
 
 		const record = {
 			id: "failed-agent",
@@ -605,7 +645,9 @@ describe("refreshOneAgentRuntime crash lock behavior", () => {
 		expect(result.removeFromRegistry).toBe(false);
 
 		// Lock should be cleaned
-		const lockExists = await Bun.file(join(worktreePath, ".pi", "active.lock")).exists();
+		const lockExists = await Bun.file(
+			join(worktreePath, ".pi", "active.lock"),
+		).exists();
 		expect(lockExists).toBe(false);
 	});
 
@@ -639,7 +681,9 @@ describe("refreshOneAgentRuntime crash lock behavior", () => {
 		expect(result.removeFromRegistry).toBe(false);
 
 		// Lock should NOT be cleaned (this is the key behavior)
-		const lockExists = await Bun.file(join(worktreePath, ".pi", "active.lock")).exists();
+		const lockExists = await Bun.file(
+			join(worktreePath, ".pi", "active.lock"),
+		).exists();
 		expect(lockExists).toBe(true);
 
 		// Status should be set to crashed

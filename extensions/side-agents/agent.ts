@@ -18,13 +18,13 @@ import {
 	type AgentRecord,
 	type AgentStatus,
 	type ExitMarker,
-	type RegistryFile,
 	getMetaDir,
 	getStateRoot,
 	isChildRuntime,
 	isTerminalStatus,
 	mutateRegistry,
 	prepareFreshRuntimeDir,
+	type RegistryFile,
 	type StartAgentParams,
 	type StartAgentResult,
 	setRecordStatus,
@@ -139,14 +139,23 @@ export function statusColorRole(
 	}
 }
 
-type ModeFileSpec = { provider?: string; modelId?: string; thinkingLevel?: string };
-type ParsedModesFile = { currentMode?: string; modes?: Record<string, ModeFileSpec> };
+type ModeFileSpec = {
+	provider?: string;
+	modelId?: string;
+	thinkingLevel?: string;
+};
+type ParsedModesFile = {
+	currentMode?: string;
+	modes?: Record<string, ModeFileSpec>;
+};
 
 /** Read and parse modes.json, checking project-level first, then global. */
-export async function readModesFile(cwd: string): Promise<{ parsed: ParsedModesFile; path: string } | undefined> {
+export async function readModesFile(
+	cwd: string,
+): Promise<{ parsed: ParsedModesFile; path: string } | undefined> {
 	const homedir = os.homedir();
-	const agentDir = process.env["PI_CODING_AGENT_DIR"]
-		? resolve(process.env["PI_CODING_AGENT_DIR"].replace(/^~/, homedir))
+	const agentDir = process.env.PI_CODING_AGENT_DIR
+		? resolve(process.env.PI_CODING_AGENT_DIR.replace(/^~/, homedir))
 		: join(homedir, ".pi", "agent");
 
 	const candidates = [
@@ -158,12 +167,14 @@ export async function readModesFile(cwd: string): Promise<{ parsed: ParsedModesF
 		try {
 			const raw = await fs.readFile(modesPath, "utf8");
 			const parsed = JSON.parse(raw) as ParsedModesFile;
-			if (parsed.modes && typeof parsed.modes === "object" && Object.keys(parsed.modes).length > 0) {
+			if (
+				parsed.modes &&
+				typeof parsed.modes === "object" &&
+				Object.keys(parsed.modes).length > 0
+			) {
 				return { parsed, path: modesPath };
 			}
-		} catch {
-			continue;
-		}
+		} catch {}
 	}
 	return undefined;
 }
@@ -335,7 +346,11 @@ export async function resolveModelSpecForChild(
 	if (!requested || requested.trim().length === 0) {
 		// Try to inherit the full mode (model + thinking level) from modes.json
 		if (thinkingLevel !== undefined) {
-			const modeSpec = await inferCurrentModeModelSpec(ctx.cwd, ctx, thinkingLevel);
+			const modeSpec = await inferCurrentModeModelSpec(
+				ctx.cwd,
+				ctx,
+				thinkingLevel,
+			);
 			if (modeSpec) return { modelSpec: modeSpec };
 		}
 		return { ...(currentModelSpec ? { modelSpec: currentModelSpec } : {}) };
@@ -480,7 +495,9 @@ export async function refreshAgent(
 	return snapshot;
 }
 
-export async function refreshAllAgents(stateRoot: string): Promise<RegistryFile> {
+export async function refreshAllAgents(
+	stateRoot: string,
+): Promise<RegistryFile> {
 	// Don't create the meta dir just to discover there are no agents.
 	if (!(await fileExists(getMetaDir(stateRoot)))) {
 		return { version: 1, agents: {} };
@@ -661,8 +678,14 @@ export async function startAgent(
 
 		// Try to infer thinking level for auto-inherit (best-effort; getThinkingLevel
 		// may not exist in all pi versions).
-		const thinkingLevel = (pi as unknown as { getThinkingLevel?: () => string | undefined }).getThinkingLevel?.();
-		const resolvedModel = await resolveModelSpecForChild(ctx, params.model, thinkingLevel);
+		const thinkingLevel = (
+			pi as unknown as { getThinkingLevel?: () => string | undefined }
+		).getThinkingLevel?.();
+		const resolvedModel = await resolveModelSpecForChild(
+			ctx,
+			params.model,
+			thinkingLevel,
+		);
 		const modelSpec = resolvedModel.modelSpec;
 		if (resolvedModel.warning) aggregatedWarnings.push(resolvedModel.warning);
 
@@ -843,7 +866,7 @@ export async function waitForAny(
 
 		for (const id of uniqueIds) {
 			const checked = await agentCheckPayload(stateRoot, id);
-			const ok = checked["ok"] === true;
+			const ok = checked.ok === true;
 			if (!ok) {
 				if (knownIds.has(id)) {
 					return {
@@ -858,9 +881,7 @@ export async function waitForAny(
 
 			knownIds.add(id);
 			// biome-ignore lint/suspicious/noExplicitAny: ignored using `--suppress`
-			const status = (checked["agent"] as any)?.status as
-				| AgentStatus
-				| undefined;
+			const status = (checked.agent as any)?.status as AgentStatus | undefined;
 			if (!status) continue;
 			if (waitStateSet.has(status)) {
 				return checked;
@@ -941,8 +962,8 @@ export async function ensureChildSessionLinked(
 	const lockPath = join(ctx.cwd, ".pi", "active.lock");
 	if (await fileExists(lockPath)) {
 		const lock = (await readJsonFile<Record<string, unknown>>(lockPath)) ?? {};
-		lock["sessionId"] = childSession;
-		lock["agentId"] = agentId;
+		lock.sessionId = childSession;
+		lock.agentId = agentId;
 		// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 		await atomicWrite(lockPath, JSON.stringify(lock, null, 2) + "\n");
 	}

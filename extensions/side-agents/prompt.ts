@@ -159,7 +159,9 @@ export async function buildKickoffPrompt(
 			timestamp: Date.now(),
 		};
 
-		const apiKey = await ctx.modelRegistry.getApiKeyForProvider(ctx.model.provider);
+		const apiKey = await ctx.modelRegistry.getApiKeyForProvider(
+			ctx.model.provider,
+		);
 		const response = await complete(
 			ctx.model,
 			{ systemPrompt: SUMMARY_SYSTEM_PROMPT, messages: [userMessage] },
@@ -210,10 +212,10 @@ function collectRecentBacklogLines(
 
 	const selected: string[] = [];
 	for (let i = lines.length - 1; i >= 0; i -= 1) {
-		const cleaned = stripTerminalNoise(lines[i]!).trimEnd();
+		const cleaned = stripTerminalNoise(lines[i]).trimEnd();
 		if (cleaned.length === 0) continue;
 		if (isBacklogSeparatorLine(cleaned)) continue;
-		selected.push(lines[i]!);
+		selected.push(lines[i]);
 		if (selected.length >= minimumLines) break;
 	}
 
