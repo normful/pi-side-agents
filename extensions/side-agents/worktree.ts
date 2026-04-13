@@ -4,6 +4,10 @@ import { tmpdir } from "node:os";
 import { atomicWrite, ensureDir, readJsonFile } from "./fs.js";
 import type { RegistryFile } from "./registry.js";
 import {
+	isTerminalStatus,
+	loadRegistry,
+} from "./registry.js";
+import {
 	isPidAlive,
 	parseOptionalPid,
 } from "./slug.js";
@@ -316,6 +320,28 @@ export async function allocateWorktree(options: {
 			chosenPath,
 			mainHead,
 		], gitRunOpts);
+	}
+
+	// Guard against double-allocation: if the registry already tracks an active
+	// agent on this path (even if the lock file is missing), warn and continue.
+	const resolvedChosenPath = resolve(chosenPath);
+	try {
+		const registry = await loadRegistry(options.stateRoot);
+		for (const record of Object.values(registry.agents)) {
+			if (
+				record.id !== agentId &&
+				record.worktreePath &&
+				!isTerminalStatus(record.status) &&
+				resolve(record.worktreePath) === resolvedChosenPath
+			) {
+				warnings.push(
+					`Worktree already claimed by active agent '${record.id}' in registry (missing lock?): ${chosenPath}`,
+				);
+				break;
+			}
+		}
+	} catch {
+		// If we can't load the registry, skip the double-allocation check.
 	}
 
 	await ensureDir(join(chosenPath, ".pi"));
