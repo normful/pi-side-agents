@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
-import { join } from "node:path";
+import os from "node:os";
+import { join, resolve } from "node:path";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -136,6 +137,71 @@ export function statusColorRole(
 	}
 }
 
+type ModeFileSpec = { provider?: string; modelId?: string; thinkingLevel?: string };
+type ParsedModesFile = { currentMode?: string; modes?: Record<string, ModeFileSpec> };
+
+/** Read and parse modes.json, checking project-level first, then global. */
+async function readModesFile(cwd: string): Promise<{ parsed: ParsedModesFile; path: string } | undefined> {
+	const homedir = os.homedir();
+	const agentDir = process.env["PI_CODING_AGENT_DIR"]
+		? resolve(process.env["PI_CODING_AGENT_DIR"].replace(/^~/, homedir))
+		: join(homedir, ".pi", "agent");
+
+	const candidates = [
+		join(cwd, ".pi", "modes.json"),
+		join(agentDir, "modes.json"),
+	];
+
+	for (const modesPath of candidates) {
+		try {
+			const raw = await fs.readFile(modesPath, "utf8");
+			const parsed = JSON.parse(raw) as ParsedModesFile;
+			if (parsed.modes && typeof parsed.modes === "object" && Object.keys(parsed.modes).length > 0) {
+				return { parsed, path: modesPath };
+			}
+		} catch {
+			continue;
+		}
+	}
+	return undefined;
+}
+
+function modeSpecToModelSpec(spec: ModeFileSpec): string | undefined {
+	if (!spec.provider || !spec.modelId) return undefined;
+	return spec.thinkingLevel
+		? `${spec.provider}/${spec.modelId}:${spec.thinkingLevel}`
+		: `${spec.provider}/${spec.modelId}`;
+}
+
+/**
+ * Infer the current mode name by matching the active model+thinking level
+ * against modes.json definitions. Returns the mode's full model spec if found.
+ */
+async function inferCurrentModeModelSpec(
+	cwd: string,
+	ctx: ExtensionContext,
+	thinkingLevel: string,
+): Promise<string | undefined> {
+	if (!ctx.model) return undefined;
+	const file = await readModesFile(cwd);
+	if (!file?.parsed.modes) return undefined;
+
+	const provider = ctx.model.provider;
+	const modelId = ctx.model.id;
+
+	for (const spec of Object.values(file.parsed.modes)) {
+		if (
+			spec.provider === provider &&
+			spec.modelId === modelId &&
+			(spec.thinkingLevel ?? undefined) === (thinkingLevel || undefined)
+		) {
+			return modeSpecToModelSpec(spec);
+		}
+	}
+
+	return undefined;
+}
+
 // Command / tool argument parsing
 
 export function parseAgentCommandArgs(raw: string): {
@@ -259,11 +325,17 @@ async function generateSlug(
 export async function resolveModelSpecForChild(
 	ctx: ExtensionContext,
 	requested?: string,
+	thinkingLevel?: string,
 ): Promise<{ modelSpec?: string; warning?: string }> {
 	const currentModelSpec = ctx.model
 		? `${ctx.model.provider}/${ctx.model.id}`
 		: undefined;
 	if (!requested || requested.trim().length === 0) {
+		// Try to inherit the full mode (model + thinking level) from modes.json
+		if (thinkingLevel !== undefined) {
+			const modeSpec = await inferCurrentModeModelSpec(ctx.cwd, ctx, thinkingLevel);
+			if (modeSpec) return { modelSpec: modeSpec };
+		}
 		return { ...(currentModelSpec ? { modelSpec: currentModelSpec } : {}) };
 	}
 
@@ -584,7 +656,10 @@ export async function startAgent(
 			);
 		}
 
-		const resolvedModel = await resolveModelSpecForChild(ctx, params.model);
+		// Try to infer thinking level for auto-inherit (best-effort; getThinkingLevel
+		// may not exist in all pi versions).
+		const thinkingLevel = (pi as unknown as { getThinkingLevel?: () => string | undefined }).getThinkingLevel?.();
+		const resolvedModel = await resolveModelSpecForChild(ctx, params.model, thinkingLevel);
 		const modelSpec = resolvedModel.modelSpec;
 		if (resolvedModel.warning) aggregatedWarnings.push(resolvedModel.warning);
 
