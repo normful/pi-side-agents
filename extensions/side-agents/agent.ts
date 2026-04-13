@@ -44,6 +44,7 @@ import {
 	tmuxPipePaneToFile,
 	tmuxSendLine,
 	tmuxSendPrompt,
+	tmuxWaitForShellReady,
 } from "./tmux.js";
 import { run, sleep, stringifyError, tmuxWindowExists } from "./utils.js";
 import {
@@ -611,6 +612,10 @@ export async function startAgent(
 		await fs.chmod(launchScriptPath, 0o755);
 
 		tmuxPipePaneToFile(windowId, logPath);
+		// Wait for the shell in the new tmux window to be ready before sending
+		// commands — otherwise the keystrokes arrive before bash has initialised
+		// and are silently lost (displayed as text but never executed).
+		await tmuxWaitForShellReady(windowId);
 		tmuxSendLine(windowId, `cd ${JSON.stringify(worktree.worktreePath)}`);
 		tmuxSendLine(windowId, `bash ${JSON.stringify(launchScriptPath)}`);
 

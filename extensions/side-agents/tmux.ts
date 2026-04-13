@@ -1,4 +1,4 @@
-import { run, runOrThrow, shellQuote, splitLines } from "./utils.js";
+import { run, runOrThrow, shellQuote, sleep, splitLines } from "./utils.js";
 
 // These constants must match what the pi-side-agents extension reads.
 // Keep in sync with extensions/side-agents.ts
@@ -89,6 +89,25 @@ export function tmuxCaptureVisible(windowId: string): string[] {
 	const captured = run("tmux", ["capture-pane", "-p", "-t", windowId]);
 	if (!captured.ok) return [];
 	return splitLines(captured.stdout);
+}
+
+/** Wait for a shell prompt to appear in a newly created tmux window. */
+export async function tmuxWaitForShellReady(
+	windowId: string,
+	timeoutMs = 5000,
+): Promise<void> {
+	const started = Date.now();
+	while (Date.now() - started < timeoutMs) {
+		const captured = run("tmux", ["capture-pane", "-p", "-t", windowId]);
+		if (captured.ok) {
+			const lines = captured.stdout.split(/\r?\n/).filter((l) => l.trim().length > 0);
+			if (lines.some((l) => /[\$#%>]\s*$/.test(l))) {
+				return;
+			}
+		}
+		await sleep(50);
+	}
+	// Timed out — proceed anyway rather than failing the whole agent start.
 }
 
 export function buildLaunchScript(params: {
