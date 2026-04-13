@@ -17,6 +17,7 @@ import {
 	type AgentRecord,
 	type AgentStatus,
 	type ExitMarker,
+	type RegistryFile,
 	getMetaDir,
 	getStateRoot,
 	isChildRuntime,
@@ -404,7 +405,11 @@ export async function refreshAgent(
 	return snapshot;
 }
 
-export async function refreshAllAgents(stateRoot: string) {
+export async function refreshAllAgents(stateRoot: string): Promise<RegistryFile> {
+	// Don't create the meta dir just to discover there are no agents.
+	if (!(await fileExists(getMetaDir(stateRoot)))) {
+		return { version: 1, agents: {} };
+	}
 	return mutateRegistry(stateRoot, async (registry) => {
 		for (const [agentId, record] of Object.entries(registry.agents)) {
 			const refreshed = await refreshOneAgentRuntime(stateRoot, record);
