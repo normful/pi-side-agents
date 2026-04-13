@@ -1,4 +1,4 @@
-import { run, runOrThrow, shellQuote, splitLines } from "./utils.js";
+import { run, runOrThrow, shellQuote, sleep, splitLines } from "./utils.js";
 
 // These constants must match what the pi-side-agents extension reads.
 // Keep in sync with extensions/side-agents.ts
@@ -91,6 +91,27 @@ export function tmuxCaptureVisible(windowId: string): string[] {
 	return splitLines(captured.stdout);
 }
 
+/** Wait for a shell prompt to appear in a newly created tmux window. */
+export async function tmuxWaitForShellReady(
+	windowId: string,
+	timeoutMs = 5000,
+): Promise<void> {
+	const started = Date.now();
+	while (Date.now() - started < timeoutMs) {
+		const captured = run("tmux", ["capture-pane", "-p", "-t", windowId]);
+		if (captured.ok) {
+			const lines = captured.stdout
+				.split(/\r?\n/)
+				.filter((l) => l.trim().length > 0);
+			if (lines.some((l) => /[$#%>]\s*$/.test(l))) {
+				return;
+			}
+		}
+		await sleep(50);
+	}
+	// Timed out — proceed anyway rather than failing the whole agent start.
+}
+
 export function buildLaunchScript(params: {
 	agentId: string;
 	parentSessionId?: string;
@@ -164,16 +185,20 @@ export ${envParentRepo}="$PARENT_REPO"
 export ${envStateRoot}="$STATE_ROOT"
 export ${envRuntimeDir}="$RUNTIME_DIR"
 
+iso_now() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
 write_exit() {
   local code="$1"
-  printf '{"exitCode":%d,"finishedAt":"%s"}\n' "$code" "$(date -Is)" > "$EXIT_FILE"
+  printf '{"exitCode":%d,"finishedAt":"%s"}\n' "$code" "$(iso_now)" > "$EXIT_FILE"
 }
 
 cd "$WORKTREE"
 
 if [[ -x "$START_SCRIPT" ]]; then
   set +e
-  "$START_SCRIPT" "$PARENT_REPO" "$WORKTREE" "$AGENT_ID"
+  source "$START_SCRIPT" "$PARENT_REPO" "$WORKTREE" "$AGENT_ID"
   start_exit=$?
   set -e
   if [[ "$start_exit" -ne 0 ]]; then

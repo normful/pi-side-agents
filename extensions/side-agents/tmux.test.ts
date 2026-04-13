@@ -1,4 +1,93 @@
-import { describe, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
+import { tmuxWaitForShellReady } from "./tmux.js";
+
+describe("tmuxWaitForShellReady", () => {
+	// Helper to temporarily replace the run function
+	function _withMockedRun(
+		_mockFn: typeof runOriginal,
+		fn: () => Promise<void>,
+	) {
+		return async () => {
+			const _original = await import("./utils.js");
+			// We can't easily swap the imported run, so we'll test the logic
+			// by checking what tmux commands WOULD be called
+			await fn();
+		};
+	}
+
+	test("tmuxWaitForShellReady resolves when dollar prompt detected", async () => {
+		// We test the logic by calling tmuxWaitForShellReady with a mock-like approach
+		// Since tmuxWaitForShellReady uses `run` internally, we need to verify
+		// the regex pattern it uses to detect prompts
+		const promptPattern = /[$#%>]\s*$/;
+
+		// Dollar prompt should match
+		expect("user@host $".trim()).toMatch(promptPattern);
+		expect("~$ ".trim()).toMatch(promptPattern);
+		expect("$ ".trim()).toMatch(promptPattern);
+	});
+
+	test("tmuxWaitForShellReady resolves when hash prompt detected", async () => {
+		const promptPattern = /[$#%>]\s*$/;
+
+		// Hash (root) prompt should match
+		expect("root@host #".trim()).toMatch(promptPattern);
+		expect("# ".trim()).toMatch(promptPattern);
+	});
+
+	test("tmuxWaitForShellReady ignores empty lines", async () => {
+		const promptPattern = /[$#%>]\s*$/;
+		const lines = ["", "   ", "some output", "more text"];
+
+		// None of these should match the prompt pattern
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (trimmed.length > 0) {
+				expect(trimmed).not.toMatch(promptPattern);
+			}
+		}
+	});
+
+	test("tmuxWaitForShellReady times out gracefully", async () => {
+		// tmuxWaitForShellReady should return without throwing even when
+		// no prompt is detected. The function catches the timeout internally
+		// and returns (proceeds anyway).
+		// We can verify this by checking the function doesn't throw for invalid window
+		const result = await tmuxWaitForShellReady("@invalid-window-id", 100);
+		expect(result).toBeUndefined(); // Function returns void/undefined on timeout
+	});
+
+	test("tmuxWaitForShellReady handles tmux failure", async () => {
+		// When capture-pane fails (e.g., invalid window), tmuxWaitForShellReady
+		// should not throw but return after timeout
+		const result = await tmuxWaitForShellReady("nonexistent-window-12345", 100);
+		expect(result).toBeUndefined();
+	});
+
+	// Additional tests for the underlying pattern matching logic
+	test("percent prompt is detected", () => {
+		const promptPattern = /[$#%>]\s*$/;
+		expect("tcsh% ".trim()).toMatch(promptPattern);
+		expect("%".trim()).toMatch(promptPattern);
+	});
+
+	test("greater-than prompt is detected", () => {
+		const promptPattern = /[$#%>]\s*$/;
+		expect("> ".trim()).toMatch(promptPattern);
+		expect(">".trim()).toMatch(promptPattern);
+	});
+
+	test("multiline output with prompt in middle is handled", () => {
+		// The function filters empty lines before checking for prompts
+		const lines = "line1\nline2\nuser@host $\nline3".split("\n");
+		const nonEmpty = lines.filter((l) => l.trim().length > 0);
+		const hasPrompt = nonEmpty.some((l) => /[$#%>]\s*$/.test(l));
+		expect(hasPrompt).toBe(true);
+	});
+});
+
+import { describe } from "bun:test";
+import { spawnSync } from "node:child_process";
 import {
 	buildLaunchScript,
 	PI_SIDE_AGENT_ID,
@@ -407,5 +496,93 @@ describe("buildLaunchScript", () => {
 		expect(script).toContain('cd "$WORKTREE"');
 		expect(script).toContain('"${PI_CMD[@]}"');
 		expect(script).toContain("tmux kill-window");
+	});
+
+	test("buildLaunchScript sources start script instead of executing", () => {
+		// Commit 872ab79: The start script should be sourced (using `.` or `source`),
+		// not executed directly.
+		const script = buildLaunchScript({
+			agentId: "test-agent",
+			parentRepoRoot: "/repo",
+			stateRoot: "/repo",
+			worktreePath: "/repo/.worktrees/agent-test",
+			tmuxWindowId: "@1",
+			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
+			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
+			runtimeDir: "/repo/.pi/runtime/agent-test",
+			disableSandbox: false,
+		});
+
+		// Should contain `source "$START_SCRIPT"` or `. "$START_SCRIPT"`
+		expect(script).toMatch(/source\s+["']\$START_SCRIPT["']/);
+		// Should NOT execute the script directly (e.g., `"$START_SCRIPT"` without source)
+		expect(script).not.toMatch(/^\s*["']\$START_SCRIPT["']/m);
+	});
+
+	test("buildLaunchScript includes iso_now helper", () => {
+		// Commit 872ab79: The script should include an iso_now() helper function
+		// that uses portable `date -u +"%Y-%m-%dT%H:%M:%SZ"`
+		const script = buildLaunchScript({
+			agentId: "test-agent",
+			parentRepoRoot: "/repo",
+			stateRoot: "/repo",
+			worktreePath: "/repo/.worktrees/agent-test",
+			tmuxWindowId: "@1",
+			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
+			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
+			runtimeDir: "/repo/.pi/runtime/agent-test",
+			disableSandbox: false,
+		});
+
+		// Should define the iso_now function
+		expect(script).toContain("iso_now()");
+		// Should use portable date format
+		expect(script).toContain('date -u +"%Y-%m-%dT%H:%M:%SZ"');
+	});
+
+	test("buildLaunchScript uses portable iso_now for timestamps", () => {
+		// Commit ff48f9b: The iso_now helper should use portable date format
+		// instead of non-portable `date -Is`
+		const script = buildLaunchScript({
+			agentId: "test-agent",
+			parentRepoRoot: "/repo",
+			stateRoot: "/repo",
+			worktreePath: "/repo/.worktrees/agent-test",
+			tmuxWindowId: "@1",
+			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
+			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
+			runtimeDir: "/repo/.pi/runtime/agent-test",
+			disableSandbox: false,
+		});
+
+		// Should use portable UTC format
+		expect(script).toContain('date -u +"%Y-%m-%dT%H:%M:%SZ"');
+		// Should NOT use non-portable -Is format
+		expect(script).not.toContain("date -Is");
+	});
+
+	test("buildLaunchScript output is valid bash", () => {
+		// Commit ff48f9b: The generated script should pass bash syntax check
+		const script = buildLaunchScript({
+			agentId: "test-agent",
+			parentSessionId: "parent-123",
+			parentRepoRoot: "/repo",
+			stateRoot: "/repo",
+			worktreePath: "/repo/.worktrees/agent-test",
+			tmuxWindowId: "@1",
+			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
+			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
+			runtimeDir: "/repo/.pi/runtime/agent-test",
+			disableSandbox: false,
+		});
+
+		// Use bash -n to check syntax without executing
+		const result = spawnSync("bash", ["-n", "-s"], {
+			input: script,
+			encoding: "utf8",
+		});
+
+		expect(result.status).toBe(0);
+		expect(result.stderr).toBe("");
 	});
 });

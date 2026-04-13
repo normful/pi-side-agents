@@ -1,5 +1,5 @@
-import { basename } from "node:path";
 import { existsSync } from "node:fs";
+import { basename } from "node:path";
 import type {
 	AgentToolResult,
 	ExtensionAPI,
@@ -25,6 +25,7 @@ import { getStateRoot, mutateRegistry } from "./registry.js";
 import { summarizeOrphanLock } from "./slug.js";
 import { json, run, stringifyError } from "./utils.js";
 import {
+	cleanupWorktreeLockBestEffort,
 	reclaimOrphanWorktreeLocks,
 	scanOrphanWorktreeLocks,
 } from "./worktree.js";
@@ -83,7 +84,9 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 					branchHint: params.branchHint,
 					...(params.model ? { model: params.model } : {}),
 					includeSummary: false,
-					...(params.disableSandbox !== undefined ? { disableSandbox: params.disableSandbox } : {}),
+					...(params.disableSandbox !== undefined
+						? { disableSandbox: params.disableSandbox }
+						: {}),
 				});
 				return {
 					content: [
@@ -252,7 +255,10 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 			const parsed = parseAgentCommandArgs(args);
 			if (!parsed.task) {
 				ctx.hasUI &&
-					ctx.ui.notify("Usage: /safe-agent [-model <provider/id>] <task>", "error");
+					ctx.ui.notify(
+						"Usage: /safe-agent [-model <provider/id>] <task>",
+						"error",
+					);
 				return;
 			}
 
@@ -297,7 +303,10 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 			const parsed = parseAgentCommandArgs(args);
 			if (!parsed.task) {
 				ctx.hasUI &&
-					ctx.ui.notify("Usage: /unsafe-agent [-model <provider/id>] <task>", "error");
+					ctx.ui.notify(
+						"Usage: /unsafe-agent [-model <provider/id>] <task>",
+						"error",
+					);
 				return;
 			}
 
@@ -416,11 +425,20 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 					`Remove ${failedIds.length} failed/crashed agent(s) from registry: ${failedIds.join(", ")}`,
 				);
 				if (confirmed) {
+					// Collect worktree paths before removing records so we can
+					// release their locks after the registry is updated.
+					const worktreePaths: string[] = [];
 					registry = await mutateRegistry(stateRoot, async (next) => {
 						for (const id of failedIds) {
+							const rec = next.agents[id];
+							if (rec?.worktreePath) worktreePaths.push(rec.worktreePath);
 							delete next.agents[id];
 						}
 					});
+					// Release worktree locks now that the agents are cleared.
+					for (const wt of worktreePaths) {
+						await cleanupWorktreeLockBestEffort(wt);
+					}
 					ctx.ui.notify(
 						`Removed ${failedIds.length} agent(s): ${failedIds.join(", ")}`,
 						"info",
@@ -507,4 +525,3 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		await renderStatusLine(pi, ctx, { emitTransitions: false }).catch(() => {});
 	});
 }
-

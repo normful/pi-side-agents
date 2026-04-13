@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
-import { join } from "node:path";
+import os from "node:os";
+import { join, resolve } from "node:path";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -23,6 +24,7 @@ import {
 	isTerminalStatus,
 	mutateRegistry,
 	prepareFreshRuntimeDir,
+	type RegistryFile,
 	type StartAgentParams,
 	type StartAgentResult,
 	setRecordStatus,
@@ -44,6 +46,7 @@ import {
 	tmuxPipePaneToFile,
 	tmuxSendLine,
 	tmuxSendPrompt,
+	tmuxWaitForShellReady,
 } from "./tmux.js";
 import { run, sleep, stringifyError, tmuxWindowExists } from "./utils.js";
 import {
@@ -74,6 +77,8 @@ export type StatusTransitionNotice = {
 type RefreshRuntimeResult = {
 	removeFromRegistry: boolean;
 };
+
+export type { RefreshRuntimeResult };
 
 // Module-level mutable state
 let statusPollTimer: ReturnType<typeof setInterval> | undefined;
@@ -132,6 +137,82 @@ export function statusColorRole(
 		case "crashed":
 			return "error";
 	}
+}
+
+type ModeFileSpec = {
+	provider?: string;
+	modelId?: string;
+	thinkingLevel?: string;
+};
+type ParsedModesFile = {
+	currentMode?: string;
+	modes?: Record<string, ModeFileSpec>;
+};
+
+/** Read and parse modes.json, checking project-level first, then global. */
+export async function readModesFile(
+	cwd: string,
+): Promise<{ parsed: ParsedModesFile; path: string } | undefined> {
+	const homedir = os.homedir();
+	const agentDir = process.env.PI_CODING_AGENT_DIR
+		? resolve(process.env.PI_CODING_AGENT_DIR.replace(/^~/, homedir))
+		: join(homedir, ".pi", "agent");
+
+	const candidates = [
+		join(cwd, ".pi", "modes.json"),
+		join(agentDir, "modes.json"),
+	];
+
+	for (const modesPath of candidates) {
+		try {
+			const raw = await fs.readFile(modesPath, "utf8");
+			const parsed = JSON.parse(raw) as ParsedModesFile;
+			if (
+				parsed.modes &&
+				typeof parsed.modes === "object" &&
+				Object.keys(parsed.modes).length > 0
+			) {
+				return { parsed, path: modesPath };
+			}
+		} catch {}
+	}
+	return undefined;
+}
+
+export function modeSpecToModelSpec(spec: ModeFileSpec): string | undefined {
+	if (!spec.provider || !spec.modelId) return undefined;
+	return spec.thinkingLevel
+		? `${spec.provider}/${spec.modelId}:${spec.thinkingLevel}`
+		: `${spec.provider}/${spec.modelId}`;
+}
+
+/**
+ * Infer the current mode name by matching the active model+thinking level
+ * against modes.json definitions. Returns the mode's full model spec if found.
+ */
+export async function inferCurrentModeModelSpec(
+	cwd: string,
+	ctx: ExtensionContext,
+	thinkingLevel: string,
+): Promise<string | undefined> {
+	if (!ctx.model) return undefined;
+	const file = await readModesFile(cwd);
+	if (!file?.parsed.modes) return undefined;
+
+	const provider = ctx.model.provider;
+	const modelId = ctx.model.id;
+
+	for (const spec of Object.values(file.parsed.modes)) {
+		if (
+			spec.provider === provider &&
+			spec.modelId === modelId &&
+			(spec.thinkingLevel ?? undefined) === (thinkingLevel || undefined)
+		) {
+			return modeSpecToModelSpec(spec);
+		}
+	}
+
+	return undefined;
 }
 
 // Command / tool argument parsing
@@ -257,11 +338,21 @@ async function generateSlug(
 export async function resolveModelSpecForChild(
 	ctx: ExtensionContext,
 	requested?: string,
+	thinkingLevel?: string,
 ): Promise<{ modelSpec?: string; warning?: string }> {
 	const currentModelSpec = ctx.model
 		? `${ctx.model.provider}/${ctx.model.id}`
 		: undefined;
 	if (!requested || requested.trim().length === 0) {
+		// Try to inherit the full mode (model + thinking level) from modes.json
+		if (thinkingLevel !== undefined) {
+			const modeSpec = await inferCurrentModeModelSpec(
+				ctx.cwd,
+				ctx,
+				thinkingLevel,
+			);
+			if (modeSpec) return { modelSpec: modeSpec };
+		}
 		return { ...(currentModelSpec ? { modelSpec: currentModelSpec } : {}) };
 	}
 
@@ -326,12 +417,12 @@ export async function resolveModelSpecForChild(
 
 // Runtime refresh
 
-async function refreshOneAgentRuntime(
+export async function refreshOneAgentRuntime(
 	stateRoot: string,
 	record: AgentRecord,
 ): Promise<RefreshRuntimeResult> {
 	if (record.status === "done") {
-		await cleanupWorktreeLockBestEffort(record.worktreePath);
+		await cleanupWorktreeLockBestEffort(record.worktreePath, record.id);
 		return { removeFromRegistry: true };
 	}
 
@@ -349,7 +440,7 @@ async function refreshOneAgentRuntime(
 			if (!changed) {
 				record.updatedAt = new Date().toISOString();
 			}
-			await cleanupWorktreeLockBestEffort(record.worktreePath);
+			await cleanupWorktreeLockBestEffort(record.worktreePath, record.id);
 			if (exit.exitCode === 0) {
 				return { removeFromRegistry: true };
 			}
@@ -379,7 +470,8 @@ async function refreshOneAgentRuntime(
 			record.error =
 				"tmux window disappeared before an exit marker was recorded";
 		}
-		await cleanupWorktreeLockBestEffort(record.worktreePath);
+		// Do NOT release worktree lock for crashed agents; the workspace
+		// is blocked from reuse until the agent is explicitly cleared.
 	}
 
 	return { removeFromRegistry: false };
@@ -403,7 +495,13 @@ export async function refreshAgent(
 	return snapshot;
 }
 
-export async function refreshAllAgents(stateRoot: string) {
+export async function refreshAllAgents(
+	stateRoot: string,
+): Promise<RegistryFile> {
+	// Don't create the meta dir just to discover there are no agents.
+	if (!(await fileExists(getMetaDir(stateRoot)))) {
+		return { version: 1, agents: {} };
+	}
 	return mutateRegistry(stateRoot, async (registry) => {
 		for (const [agentId, record] of Object.entries(registry.agents)) {
 			const refreshed = await refreshOneAgentRuntime(stateRoot, record);
@@ -578,7 +676,16 @@ export async function startAgent(
 			);
 		}
 
-		const resolvedModel = await resolveModelSpecForChild(ctx, params.model);
+		// Try to infer thinking level for auto-inherit (best-effort; getThinkingLevel
+		// may not exist in all pi versions).
+		const thinkingLevel = (
+			pi as unknown as { getThinkingLevel?: () => string | undefined }
+		).getThinkingLevel?.();
+		const resolvedModel = await resolveModelSpecForChild(
+			ctx,
+			params.model,
+			thinkingLevel,
+		);
 		const modelSpec = resolvedModel.modelSpec;
 		if (resolvedModel.warning) aggregatedWarnings.push(resolvedModel.warning);
 
@@ -611,6 +718,10 @@ export async function startAgent(
 		await fs.chmod(launchScriptPath, 0o755);
 
 		tmuxPipePaneToFile(windowId, logPath);
+		// Wait for the shell in the new tmux window to be ready before sending
+		// commands — otherwise the keystrokes arrive before bash has initialised
+		// and are silently lost (displayed as text but never executed).
+		await tmuxWaitForShellReady(windowId);
 		tmuxSendLine(windowId, `cd ${JSON.stringify(worktree.worktreePath)}`);
 		tmuxSendLine(windowId, `bash ${JSON.stringify(launchScriptPath)}`);
 
@@ -755,7 +866,7 @@ export async function waitForAny(
 
 		for (const id of uniqueIds) {
 			const checked = await agentCheckPayload(stateRoot, id);
-			const ok = checked["ok"] === true;
+			const ok = checked.ok === true;
 			if (!ok) {
 				if (knownIds.has(id)) {
 					return {
@@ -770,9 +881,7 @@ export async function waitForAny(
 
 			knownIds.add(id);
 			// biome-ignore lint/suspicious/noExplicitAny: ignored using `--suppress`
-			const status = (checked["agent"] as any)?.status as
-				| AgentStatus
-				| undefined;
+			const status = (checked.agent as any)?.status as AgentStatus | undefined;
 			if (!status) continue;
 			if (waitStateSet.has(status)) {
 				return checked;
@@ -853,8 +962,8 @@ export async function ensureChildSessionLinked(
 	const lockPath = join(ctx.cwd, ".pi", "active.lock");
 	if (await fileExists(lockPath)) {
 		const lock = (await readJsonFile<Record<string, unknown>>(lockPath)) ?? {};
-		lock["sessionId"] = childSession;
-		lock["agentId"] = agentId;
+		lock.sessionId = childSession;
+		lock.agentId = agentId;
 		// biome-ignore lint/style/useTemplate: ignored using `--suppress`
 		await atomicWrite(lockPath, JSON.stringify(lock, null, 2) + "\n");
 	}
