@@ -25,6 +25,7 @@ import { getStateRoot, mutateRegistry } from "./registry.js";
 import { summarizeOrphanLock } from "./slug.js";
 import { json, run, stringifyError } from "./utils.js";
 import {
+	cleanupWorktreeLockBestEffort,
 	reclaimOrphanWorktreeLocks,
 	scanOrphanWorktreeLocks,
 } from "./worktree.js";
@@ -416,11 +417,20 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 					`Remove ${failedIds.length} failed/crashed agent(s) from registry: ${failedIds.join(", ")}`,
 				);
 				if (confirmed) {
+					// Collect worktree paths before removing records so we can
+					// release their locks after the registry is updated.
+					const worktreePaths: string[] = [];
 					registry = await mutateRegistry(stateRoot, async (next) => {
 						for (const id of failedIds) {
+							const rec = next.agents[id];
+							if (rec?.worktreePath) worktreePaths.push(rec.worktreePath);
 							delete next.agents[id];
 						}
 					});
+					// Release worktree locks now that the agents are cleared.
+					for (const wt of worktreePaths) {
+						await cleanupWorktreeLockBestEffort(wt);
+					}
 					ctx.ui.notify(
 						`Removed ${failedIds.length} agent(s): ${failedIds.join(", ")}`,
 						"info",

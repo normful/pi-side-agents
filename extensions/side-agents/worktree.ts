@@ -36,9 +36,22 @@ export async function updateWorktreeLock(
 
 export async function cleanupWorktreeLockBestEffort(
 	worktreePath?: string,
+	agentId?: string,
 ): Promise<void> {
 	if (!worktreePath) return;
 	const lockPath = join(worktreePath, ".pi", "active.lock");
+	// If an agentId is provided, verify the lock actually belongs to this agent
+	// before deleting — another agent may have since claimed the same worktree.
+	if (agentId) {
+		try {
+			const lock = await readJsonFile<Record<string, unknown>>(lockPath);
+			if (lock && typeof lock["agentId"] === "string" && lock["agentId"] !== agentId) {
+				return;
+			}
+		} catch {
+			// If we can't read the lock, proceed with deletion attempt.
+		}
+	}
 	await fs.unlink(lockPath).catch(() => {});
 }
 

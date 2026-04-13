@@ -405,7 +405,7 @@ async function refreshOneAgentRuntime(
 	record: AgentRecord,
 ): Promise<RefreshRuntimeResult> {
 	if (record.status === "done") {
-		await cleanupWorktreeLockBestEffort(record.worktreePath);
+		await cleanupWorktreeLockBestEffort(record.worktreePath, record.id);
 		return { removeFromRegistry: true };
 	}
 
@@ -423,7 +423,7 @@ async function refreshOneAgentRuntime(
 			if (!changed) {
 				record.updatedAt = new Date().toISOString();
 			}
-			await cleanupWorktreeLockBestEffort(record.worktreePath);
+			await cleanupWorktreeLockBestEffort(record.worktreePath, record.id);
 			if (exit.exitCode === 0) {
 				return { removeFromRegistry: true };
 			}
@@ -453,7 +453,8 @@ async function refreshOneAgentRuntime(
 			record.error =
 				"tmux window disappeared before an exit marker was recorded";
 		}
-		await cleanupWorktreeLockBestEffort(record.worktreePath);
+		// Do NOT release worktree lock for crashed agents; the workspace
+		// is blocked from reuse until the agent is explicitly cleared.
 	}
 
 	return { removeFromRegistry: false };
