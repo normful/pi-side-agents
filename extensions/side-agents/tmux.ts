@@ -183,9 +183,13 @@ export ${envParentRepo}="$PARENT_REPO"
 export ${envStateRoot}="$STATE_ROOT"
 export ${envRuntimeDir}="$RUNTIME_DIR"
 
+iso_now() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
 write_exit() {
   local code="$1"
-  printf '{"exitCode":%d,"finishedAt":"%s"}\n' "$code" "$(date -Is)" > "$EXIT_FILE"
+  printf '{"exitCode":%d,"finishedAt":"%s"}\n' "$code" "$(iso_now)" > "$EXIT_FILE"
 }
 
 cd "$WORKTREE"

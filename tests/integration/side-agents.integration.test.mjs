@@ -1440,7 +1440,10 @@ set -euo pipefail
 PARENT_ROOT="\${PI_SIDE_PARENT_REPO:-\${1:-}}"
 AGENT_ID="\${PI_SIDE_AGENT_ID:-\${2:-unknown}}"
 MAIN_BRANCH="main"
-BRANCH="$(git branch --show-current)"
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+if [[ "$BRANCH" == "HEAD" ]]; then
+  BRANCH=""
+fi
 
 if [[ -z "$PARENT_ROOT" ]]; then
   echo "[side-agent-finish] Missing parent checkout path."
@@ -1458,9 +1461,13 @@ mkdir -p "$LOCK_DIR"
 
 MERGE_LOCK_TIMEOUT=120
 
+iso_now() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
 acquire_lock() {
   local payload started elapsed
-  payload="{"agentId":"$AGENT_ID","pid":$$,"acquiredAt":"$(date -Is)"}"
+  payload="{"agentId":"$AGENT_ID","pid":$$,"acquiredAt":"$(iso_now)"}"
   started=$(date +%s)
   while true; do
     if ( set -o noclobber; printf '%s\\n' "$payload" > "$LOCK_FILE" ) 2>/dev/null; then

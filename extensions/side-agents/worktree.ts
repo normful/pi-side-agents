@@ -284,13 +284,15 @@ export async function allocateWorktree(options: {
 
 	if (isRegistered) {
 		// Remember old branch so we can try to clean it up after switching away.
-		const oldBranchResult = run("git", [
-			"-C",
-			chosenPath,
-			"branch",
-			"--show-current",
-		], gitRunOpts);
-		const oldBranch = oldBranchResult.ok ? oldBranchResult.stdout.trim() : "";
+		const getCurrentBranch = (cwd: string): string => {
+			const result = run("git", ["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"], gitRunOpts);
+			if (!result.ok) return "";
+			const branch = result.stdout.trim();
+			if (!branch || branch === "HEAD") return "";
+			return branch;
+		};
+
+		const oldBranch = getCurrentBranch(chosenPath);;
 
 		run("git", ["-C", chosenPath, "merge", "--abort"], gitRunOpts);
 		runOrThrow(
