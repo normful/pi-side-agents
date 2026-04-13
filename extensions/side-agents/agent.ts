@@ -78,6 +78,8 @@ type RefreshRuntimeResult = {
 	removeFromRegistry: boolean;
 };
 
+export type { RefreshRuntimeResult };
+
 // Module-level mutable state
 let statusPollTimer: ReturnType<typeof setInterval> | undefined;
 let statusPollContext: ExtensionContext | undefined;
@@ -141,7 +143,7 @@ type ModeFileSpec = { provider?: string; modelId?: string; thinkingLevel?: strin
 type ParsedModesFile = { currentMode?: string; modes?: Record<string, ModeFileSpec> };
 
 /** Read and parse modes.json, checking project-level first, then global. */
-async function readModesFile(cwd: string): Promise<{ parsed: ParsedModesFile; path: string } | undefined> {
+export async function readModesFile(cwd: string): Promise<{ parsed: ParsedModesFile; path: string } | undefined> {
 	const homedir = os.homedir();
 	const agentDir = process.env["PI_CODING_AGENT_DIR"]
 		? resolve(process.env["PI_CODING_AGENT_DIR"].replace(/^~/, homedir))
@@ -166,7 +168,7 @@ async function readModesFile(cwd: string): Promise<{ parsed: ParsedModesFile; pa
 	return undefined;
 }
 
-function modeSpecToModelSpec(spec: ModeFileSpec): string | undefined {
+export function modeSpecToModelSpec(spec: ModeFileSpec): string | undefined {
 	if (!spec.provider || !spec.modelId) return undefined;
 	return spec.thinkingLevel
 		? `${spec.provider}/${spec.modelId}:${spec.thinkingLevel}`
@@ -177,7 +179,7 @@ function modeSpecToModelSpec(spec: ModeFileSpec): string | undefined {
  * Infer the current mode name by matching the active model+thinking level
  * against modes.json definitions. Returns the mode's full model spec if found.
  */
-async function inferCurrentModeModelSpec(
+export async function inferCurrentModeModelSpec(
 	cwd: string,
 	ctx: ExtensionContext,
 	thinkingLevel: string,
@@ -400,7 +402,7 @@ export async function resolveModelSpecForChild(
 
 // Runtime refresh
 
-async function refreshOneAgentRuntime(
+export async function refreshOneAgentRuntime(
 	stateRoot: string,
 	record: AgentRecord,
 ): Promise<RefreshRuntimeResult> {
