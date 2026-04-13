@@ -137,7 +137,7 @@ fi
 		: "";
 
 	const piCmdLine = params.useCco
-		? `PI_CMD=(cco --safe --add-dir "~/.bun:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$(dirname "$PARENT_SESSION"):ro" --add-dir "$PARENT_REPO:rw" --add-dir "$STATE_ROOT:rw" --add-dir "$RUNTIME_DIR:rw" pi --skill "$CHILD_SKILLS_DIR")`
+		? `PI_CMD=(cco --safe --add-dir "~/.config:ro" --add-dir "~/.local:rw" --add-dir "~/.bun:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$(dirname "$PARENT_SESSION"):ro" --add-dir "$PARENT_REPO:rw" --add-dir "$STATE_ROOT:rw" --add-dir "$RUNTIME_DIR:rw" pi --skill "$CHILD_SKILLS_DIR")`
 		: `PI_CMD=(pi --skill "$CHILD_SKILLS_DIR")`;
 
 	return `#!/usr/bin/env bash
