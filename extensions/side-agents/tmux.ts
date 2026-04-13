@@ -102,7 +102,7 @@ export function buildLaunchScript(params: {
 	exitFile: string;
 	modelSpec?: string;
 	runtimeDir: string;
-	useCco: boolean; // true = use CCO sandbox, false = run Pi directly
+	disableSandbox: boolean; // false = use CCO sandbox, true = run Pi directly
 }): string {
 	// Shell-quoted values for use in the generated script
 	const agentId = shellQuote(params.agentId);
@@ -124,8 +124,10 @@ export function buildLaunchScript(params: {
 	const envStateRoot = PI_SIDE_AGENTS_ROOT;
 	const envRuntimeDir = PI_SIDE_RUNTIME_DIR;
 
-	// Build the PI command based on useCco flag
-	const ccoCheckBlock = params.useCco
+	// Build the PI command based on disableSandbox flag
+	// disableSandbox: false = use CCO sandbox, true = run Pi directly
+	const useCco = !params.disableSandbox;
+	const ccoCheckBlock = useCco
 		? `# Verify cco is available
 if ! command -v cco &>/dev/null; then
   echo "[side-agent] Error: 'cco' command not found." >&2
@@ -136,7 +138,7 @@ fi
 `
 		: "";
 
-	const piCmdLine = params.useCco
+	const piCmdLine = useCco
 		? `PI_CMD=(cco --safe --add-dir "~/.config:ro" --add-dir "~/.local:rw" --add-dir "~/.bun:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$(dirname "$PARENT_SESSION"):ro" --add-dir "$PARENT_REPO:rw" --add-dir "$STATE_ROOT:rw" --add-dir "$RUNTIME_DIR:rw" pi --skill "$CHILD_SKILLS_DIR")`
 		: `PI_CMD=(pi --skill "$CHILD_SKILLS_DIR")`;
 

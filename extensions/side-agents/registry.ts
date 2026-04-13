@@ -44,6 +44,7 @@ export type AgentRecord = {
 	exitCode?: number;
 	error?: string;
 	warnings?: string[];
+	disableSandbox?: boolean; // false = use CCO sandbox (default), true = run Pi directly
 };
 
 export type RegistryFile = {

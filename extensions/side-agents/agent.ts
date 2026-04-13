@@ -605,7 +605,7 @@ export async function startAgent(
 			exitFile,
 			...(modelSpec ? { modelSpec } : {}),
 			runtimeDir,
-			useCco: !params.disableSandbox,
+			disableSandbox: Boolean(params.disableSandbox),
 		});
 		await atomicWrite(launchScriptPath, launchScript);
 		await fs.chmod(launchScriptPath, 0o755);
@@ -627,6 +627,7 @@ export async function startAgent(
 			record.logPath = logPath;
 			record.exitFile = exitFile;
 			if (modelSpec) record.model = modelSpec;
+			record.disableSandbox = Boolean(params.disableSandbox);
 			await setRecordStatus(stateRoot, record, "running");
 			record.warnings = [...(record.warnings ?? []), ...aggregatedWarnings];
 		});

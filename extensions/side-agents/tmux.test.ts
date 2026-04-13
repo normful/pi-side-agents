@@ -21,13 +21,13 @@ describe("buildLaunchScript", () => {
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			modelSpec: "anthropic/claude-3-5-sonnet",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		expect(script.startsWith("#!/usr/bin/env bash")).toBe(true);
 	});
 
-	test("checks for cco command and exits with helpful message if missing (useCco: true)", () => {
+	test("checks for cco command and exits with helpful message if missing (disableSandbox: false)", () => {
 		const script = buildLaunchScript({
 			agentId: "test-agent",
 			parentRepoRoot: "/repo",
@@ -37,7 +37,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		expect(script).toContain("command -v cco");
@@ -55,7 +55,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
-			useCco: false,
+			disableSandbox: true,
 		});
 
 		expect(script).not.toContain("command -v cco");
@@ -72,7 +72,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		expect(script).toContain("PI_CMD=(cco --safe");
@@ -89,7 +89,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
-			useCco: false,
+			disableSandbox: true,
 		});
 
 		expect(script).toContain('PI_CMD=(pi --skill "$CHILD_SKILLS_DIR")');
@@ -106,7 +106,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/my-test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/my-test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/my-test-agent",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		// The script defines AGENT_ID locally, then exports PI_SIDE_AGENT_ID referencing it
@@ -126,7 +126,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		expect(script).toContain(
@@ -146,7 +146,7 @@ describe("buildLaunchScript", () => {
 				"/Users/norman/code/myproject/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/Users/norman/code/myproject/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/Users/norman/code/myproject/.pi/runtime/test-agent",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		expect(script).toContain(`export ${PI_SIDE_PARENT_REPO}="$PARENT_REPO"`);
@@ -163,7 +163,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		expect(script).toContain(`export ${PI_SIDE_AGENTS_ROOT}="$STATE_ROOT"`);
@@ -180,7 +180,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		expect(script).toContain(`export ${PI_SIDE_RUNTIME_DIR}="$RUNTIME_DIR"`);
@@ -198,7 +198,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/test/repo/.pi/runtime/all-envs-test/kickoff.md",
 			exitFile: "/test/repo/.pi/runtime/all-envs-test/exit.json",
 			runtimeDir: "/test/repo/.pi/runtime/all-envs-test",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		// Verify each environment variable is exported with its correct name
@@ -222,7 +222,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		// When parentSessionId is undefined, it should be empty string
@@ -242,7 +242,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		// PI_CMD is initialized with cco wrapper but MODEL_SPEC is empty, so the conditional prevents --model
@@ -263,7 +263,7 @@ describe("buildLaunchScript", () => {
 			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
 			modelSpec: "anthropic/claude-3-5-sonnet",
 			runtimeDir: "/repo/.pi/runtime/test-agent",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		expect(script).toContain("cco --safe");
@@ -282,7 +282,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		// Should still export the environment variable correctly
@@ -301,7 +301,7 @@ describe("buildLaunchScript", () => {
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			modelSpec: "provider/model'with\"special",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		// shellQuote should escape single quotes properly using '"'"' pattern
@@ -319,7 +319,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		expect(script).toContain("write_exit()");
@@ -336,7 +336,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		expect(script).toContain('[[ -x "$START_SCRIPT" ]]');
@@ -352,7 +352,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		expect(script).toContain("CHILD_SKILLS_DIR");
@@ -370,7 +370,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		// shellQuote wraps values in single quotes
@@ -397,7 +397,7 @@ describe("buildLaunchScript", () => {
 			promptPath: "/repo/.pi/runtime/agent-test/kickoff.md",
 			exitFile: "/repo/.pi/runtime/agent-test/exit.json",
 			runtimeDir: "/repo/.pi/runtime/agent-test",
-			useCco: true,
+			disableSandbox: false,
 		});
 
 		// Verify the script has all required sections
