@@ -264,7 +264,7 @@ When the user explicitly approves the work (e.g. says "LGTM", "ship it", "merge 
 3. Run the finish script and explicitly pass the found value of PI_SIDE_PARENT_REPO from prev step. Example: `PI_SIDE_PARENT_REPO="/Users/somebody/some/path" .pi/side-agent-finish.sh`
 4. If the finish script exits with code 2 (conflict rebasing child branch onto MAIN_BRANCH_VALUE):
    - Stay in this worktree
-   - Resolve conflicts (`git status`, then `git rebase --continue`)
+   - Resolve conflicts (`git status`, then `GIT_EDITOR=true git rebase --continue`)
    - Re-run the finish script after the rebase completes
 5. If the parent-side fast-forward fails because MAIN_BRANCH_VALUE moved ahead:
    - The finish script retries the rebase reconcile loop automatically
