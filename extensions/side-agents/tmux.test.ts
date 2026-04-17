@@ -168,6 +168,22 @@ describe("buildLaunchScript", () => {
 		expect(script).toContain('pi --skill "$CHILD_SKILLS_DIR")');
 	});
 
+	test("includes ~/Library/Application Support as read-only in cco sandbox", () => {
+		const script = buildLaunchScript({
+			agentId: "test-agent",
+			parentRepoRoot: "/repo",
+			stateRoot: "/repo",
+			worktreePath: "/repo/.worktrees/agent-test-agent",
+			tmuxWindowId: "@1",
+			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
+			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
+			runtimeDir: "/repo/.pi/runtime/test-agent",
+			disableSandbox: false,
+		});
+
+		expect(script).toContain('"~/Library/Application Support/:ro"');
+	});
+
 	test("runs pi directly without cco when useCco is false", () => {
 		const script = buildLaunchScript({
 			agentId: "test-agent",
