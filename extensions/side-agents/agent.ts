@@ -690,10 +690,7 @@ export async function startAgent(
 		if (resolvedModel.warning) aggregatedWarnings.push(resolvedModel.warning);
 
 		const tmuxSession = getCurrentTmuxSession();
-		const { windowId, windowIndex } = createTmuxWindow(
-			tmuxSession,
-			`agent-${agentId}`,
-		);
+		const { windowId, windowIndex } = createTmuxWindow(tmuxSession, agentId);
 		spawnedWindowId = windowId;
 
 		await updateWorktreeLock(worktree.worktreePath, {
