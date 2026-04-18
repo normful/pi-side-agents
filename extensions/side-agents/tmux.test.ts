@@ -184,6 +184,25 @@ describe("buildLaunchScript", () => {
 		expect(script).toContain('"~/Library/Application Support/:ro"');
 	});
 
+	test("resolves $TMPDIR to full path and adds as read-write in cco sandbox", () => {
+		const script = buildLaunchScript({
+			agentId: "test-agent",
+			parentRepoRoot: "/repo",
+			stateRoot: "/repo",
+			worktreePath: "/repo/.worktrees/agent-test-agent",
+			tmuxWindowId: "@1",
+			promptPath: "/repo/.pi/runtime/test-agent/kickoff.md",
+			exitFile: "/repo/.pi/runtime/test-agent/exit.json",
+			runtimeDir: "/repo/.pi/runtime/test-agent",
+			disableSandbox: false,
+		});
+
+		// Script should define RESOLVED_TMPDIR by resolving TMPDIR
+		expect(script).toContain('RESOLVED_TMPDIR=$(realpath "$TMPDIR"');
+		// RESOLVED_TMPDIR should be used in cco sandbox with read-write
+		expect(script).toContain('$RESOLVED_TMPDIR:rw');
+	});
+
 	test("runs pi directly without cco when useCco is false", () => {
 		const script = buildLaunchScript({
 			agentId: "test-agent",

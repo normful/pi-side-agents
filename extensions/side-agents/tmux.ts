@@ -160,7 +160,7 @@ fi
 		: "";
 
 	const piCmdLine = useCco
-		? `PI_CMD=(cco --safe --add-dir "~/.config:ro" --add-dir "~/.local:rw" --add-dir "~/.bun:ro" --add-dir "~/Library/Application Support/:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$(dirname "$PARENT_SESSION"):ro" --add-dir "$PARENT_REPO:rw" --add-dir "$STATE_ROOT:rw" --add-dir "$RUNTIME_DIR:rw" pi --skill "$CHILD_SKILLS_DIR")`
+		? `PI_CMD=(cco --safe --add-dir "~/.config:ro" --add-dir "~/.local:rw" --add-dir "~/.bun:ro" --add-dir "~/Library/Application Support/:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$(dirname "$PARENT_SESSION"):ro" --add-dir "$RESOLVED_TMPDIR:rw" --add-dir "$PARENT_REPO:rw" --add-dir "$STATE_ROOT:rw" --add-dir "$RUNTIME_DIR:rw" pi --skill "$CHILD_SKILLS_DIR")`
 		: `PI_CMD=(pi --skill "$CHILD_SKILLS_DIR")`;
 
 	return `#!/usr/bin/env bash
@@ -176,6 +176,7 @@ PROMPT_FILE=${promptFile}
 EXIT_FILE=${exitFile}
 MODEL_SPEC=${modelSpec}
 RUNTIME_DIR=${runtimeDir}
+RESOLVED_TMPDIR=$(realpath "$TMPDIR" 2>/dev/null || echo "$TMPDIR")
 START_SCRIPT="$WORKTREE/.pi/side-agent-start.sh"
 CHILD_SKILLS_DIR="$WORKTREE/.pi/side-agent-skills"
 
