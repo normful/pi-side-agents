@@ -41,67 +41,71 @@ describe("sanitizeSlug", () => {
 	});
 });
 
-describe("slugFromTask (tail-first sliding window)", () => {
+describe("slugFromTask (tail-first sliding window, min 4 words)", () => {
 	test("empty task falls back to 'agent'", () => {
 		expect(slugFromTask("")).toBe("agent");
 		expect(slugFromTask("a the of for")).toBe("agent"); // all stop words
 	});
 
-	test("single meaningful word — uses 2-word window (preferred)", () => {
-		expect(slugFromTask("fix bug")).toBe("fix-bug"); // 2-word window
-		expect(slugFromTask("the login bug")).toBe("login-bug"); // 2-word tail
+	test("two meaningful words — falls back to 2-word window", () => {
+		expect(slugFromTask("fix bug")).toBe("fix-bug"); // size 2 fallback
+		expect(slugFromTask("the login bug")).toBe("login-bug"); // size 2 tail
 	});
 
-	test("exactly two meaningful words — 2-word window", () => {
-		expect(slugFromTask("implement dark mode")).toBe("dark-mode");
-		expect(slugFromTask("add dark mode")).toBe("dark-mode");
-		expect(slugFromTask("fix auth bug")).toBe("auth-bug");
+	test("three meaningful words — 3-word window", () => {
+		expect(slugFromTask("implement dark mode")).toBe("implement-dark-mode"); // size 3
+		expect(slugFromTask("add dark mode")).toBe("add-dark-mode"); // size 3
+		expect(slugFromTask("fix auth bug")).toBe("fix-auth-bug"); // size 3
 	});
 
-	test("exactly four words — 2-word tail preferred", () => {
+	test("four meaningful words — 4-word window (only one possible)", () => {
 		// "write tests for login page" → meaningful: ["write", "tests", "login", "page"]
-		// 2-word tail windows (tail→head): "login-page", "tests-login", "write-tests"
-		// Preferred: "login-page"
-		expect(slugFromTask("write tests for login page")).toBe("login-page");
-	});
-
-	test("more than four words — 2-word tail preferred", () => {
-		// "implement dark mode toggle for settings page"
-		// meaningful: ["implement", "dark", "mode", "toggle", "settings", "page"]
-		// 2-word tail windows (tail→head): "settings-page", "toggle-settings", "mode-toggle", "dark-mode", "implement-dark"
-		// Preferred: "settings-page"
-		expect(slugFromTask("implement dark mode toggle for settings page")).toBe(
-			"settings-page",
+		// Only one 4-word window: "write-tests-login-page"
+		expect(slugFromTask("write tests for login page")).toBe(
+			"write-tests-login-page",
 		);
 	});
 
-	test("three words — 2-word tail preferred over 3-word", () => {
-		// "fix auth bug" → meaningful: ["fix", "auth", "bug"]
-		// 2-word tail: "auth-bug"
-		// 3-word: "fix-auth-bug"
-		// 2-word preferred
-		expect(slugFromTask("fix auth bug")).toBe("auth-bug");
+	test("more than four words — 4-word tail preferred", () => {
+		// "implement dark mode toggle for settings page"
+		// meaningful: ["implement", "dark", "mode", "toggle", "settings", "page"]
+		// 4-word tail windows (tail→head):
+		// start=2: "mode-toggle-settings-page"
+		// start=1: "dark-mode-toggle-settings"
+		// start=0: "implement-dark-mode-toggle"
+		// Preferred: "mode-toggle-settings-page"
+		expect(
+			slugFromTask("implement dark mode toggle for settings page"),
+		).toBe("mode-toggle-settings-page");
 	});
 
-	test("three words — 2-word tail preferred", () => {
-		// "dark mode toggle" → meaningful: ["dark", "mode", "toggle"]
-		// 2-word tail: "mode-toggle" (preferred)
-		expect(slugFromTask("add dark mode toggle")).toBe("mode-toggle");
+	test("three words — 3-word window", () => {
+		// "clean up codebase" → meaningful: ["clean", "up", "codebase"]
+		// Only 3 words — 3-word window: "clean-up-codebase"
+		expect(slugFromTask("clean up codebase")).toBe("clean-up-codebase");
 	});
 
 	test("stop words filtered out before windowing", () => {
-		// "dark mode to settings" → meaningful: ["dark", "mode", "settings"]
-		// 2-word tail: "mode-settings"
-		expect(slugFromTask("add dark mode to settings")).toBe("mode-settings");
+		// "add dark mode to settings" → meaningful: ["add", "dark", "mode", "settings"]
+		// 4-word: "add-dark-mode-settings"
+		expect(slugFromTask("add dark mode to settings")).toBe(
+			"add-dark-mode-settings",
+		);
 	});
 
 	test("punctuation stripped correctly", () => {
-		expect(slugFromTask("fix auth bug!")).toBe("auth-bug");
-		expect(slugFromTask("write tests: login page")).toBe("login-page");
-		// "dark mode for settings" → meaningful: ["dark", "mode", "settings"]
-		// 2-word windows: "mode-settings" (tail), "dark-mode" → tail wins
+		// "fix auth bug!" → meaningful: ["fix", "auth", "bug"]
+		// 3-word: "fix-auth-bug"
+		expect(slugFromTask("fix auth bug!")).toBe("fix-auth-bug");
+		// "write tests: login page" → meaningful: ["write", "tests", "login", "page"]
+		// 4-word: "write-tests-login-page"
+		expect(slugFromTask("write tests: login page")).toBe(
+			"write-tests-login-page",
+		);
+		// "implement 'dark mode' for settings" → meaningful: ["implement", "dark", "mode", "settings"]
+		// 4-word: "implement-dark-mode-settings" ("for" is a stop word)
 		expect(slugFromTask("implement 'dark mode' for settings")).toBe(
-			"mode-settings",
+			"implement-dark-mode-settings",
 		);
 	});
 });
@@ -111,63 +115,67 @@ describe("slugFromTaskWithExisting — collision avoidance", () => {
 		const existing = new Set<string>();
 		expect(
 			slugFromTaskWithExisting("write tests for login page", existing),
-		).toBe("login-page");
+		).toBe("write-tests-login-page");
 	});
 
-	test("collision — slides to next unique tail window of same size", () => {
-		const existing = new Set<string>(["login-page"]);
+	test("collision — slides to next unique window of same size", () => {
+		const existing = new Set<string>(["write-tests-login-page"]);
 		// "write tests for login page"
-		// 2-word windows (tail→head): "login-page" (collide), "tests-login", "write-tests"
-		// First unique: "tests-login"
+		// 4-word windows: only "write-tests-login-page" (collide)
+		// → fall to 3-word: "tests-login-page" (unique!) — checked before "write-tests-login"
 		expect(
 			slugFromTaskWithExisting("write tests for login page", existing),
-		).toBe("tests-login");
+		).toBe("tests-login-page");
 	});
 
-	test("size-2 collision — slides to next unique size-2 window", () => {
-		const existing = new Set<string>(["login-page", "tests-login"]);
-		// "write tests for login page"
-		// 2-word (tail→head): "login-page" (collide), "tests-login" (collide), "write-tests" (unique!)
-		// → "write-tests" returned (no dedup needed, next candidate is unique)
+	test("size-4 collision — slides to next unique 4-word, then size-3", () => {
+		const existing = new Set<string>(["implement-dark-mode-settings"]);
+		// "implement dark mode for settings"
+		// 4-word: "implement-dark-mode-settings" (collide) — no other 4-word windows
+		// → fall to 3-word: "dark-mode-settings" (unique!)
 		expect(
-			slugFromTaskWithExisting("write tests for login page", existing),
-		).toBe("write-tests");
+			slugFromTaskWithExisting("implement dark mode for settings", existing),
+		).toBe("dark-mode-settings");
 	});
 
-	test("all windows collide — falls back to size-1 then numeric dedup", () => {
+	test("all windows collide — slides to next smaller size before dedup", () => {
 		const existing = new Set<string>([
-			"login-page",
-			"tests-login",
-			"write-tests",
+			"write-tests-login-page",
 			"tests-login-page",
-			"write-tests-login",
-			"page",
-			"login",
-		]);
-		// All size 2, 3, 1 collide → numeric dedup on best remaining candidate
-		// "tests" is first unique size-1 window
-		expect(
-			slugFromTaskWithExisting("write tests for login page", existing),
-		).toBe("tests");
-	});
-
-	test("numeric dedup only when every candidate collides", () => {
-		const existing = new Set<string>([
-			"login-page",
 			"tests-login",
-			"write-tests",
-			"tests-login-page",
 			"write-tests-login",
+			"login-page",
+			"write-tests",
 			"page",
 			"login",
 			"tests",
 			"write",
 		]);
-		// Every candidate collides. Dedup applies to the best candidate:
-		// "login-page" (first in priority order, tail-most 2-word).
+		// All size 4, 3, 2, 1 collide → dedup on best candidate: "write-tests-login-page" + -2
 		expect(
 			slugFromTaskWithExisting("write tests for login page", existing),
-		).toBe("login-page-2");
+		).toBe("write-tests-login-page-2");
+	});
+
+	test("numeric dedup only when every candidate collides", () => {
+		const existing = new Set<string>([
+			"write-tests-login-page",
+			"tests-login-page",
+			"tests-login",
+			"write-tests-login",
+			"login-page",
+			"write-tests",
+			"page",
+			"login",
+			"tests",
+			"write",
+			"write-tests-login-page-2",
+		]);
+		// Every candidate collides. Dedup applies to the best candidate:
+		// "write-tests-login-page" (first in priority order, 4-word).
+		expect(
+			slugFromTaskWithExisting("write tests for login page", existing),
+		).toBe("write-tests-login-page-3");
 	});
 });
 
@@ -184,10 +192,18 @@ describe("comparison: legacy vs tail-first", () => {
 			"write-tests-dashboard",
 		);
 
-		// Tail-first diverges on the distinctive noun
-		expect(slugFromTask("write tests for login page")).toBe("login-page");
-		expect(slugFromTask("write tests for signup page")).toBe("signup-page");
-		expect(slugFromTask("write tests for dashboard")).toBe("tests-dashboard");
+		// Tail-first uses 4-word windows (or falls back to 3-word when < 4 words)
+		expect(slugFromTask("write tests for login page")).toBe(
+			"write-tests-login-page",
+		);
+		expect(slugFromTask("write tests for signup page")).toBe(
+			"write-tests-signup-page",
+		);
+		// "for" is a stop word, so "write tests for dashboard" → ["write", "tests", "dashboard"]
+		// Only 3 words → 3-word window: "write-tests-dashboard"
+		expect(slugFromTask("write tests for dashboard")).toBe(
+			"write-tests-dashboard",
+		);
 	});
 
 	test("verb-heavy prompts — dedup via shared Set", () => {
@@ -198,27 +214,27 @@ describe("comparison: legacy vs tail-first", () => {
 			"add dark mode to settings page",
 			shared,
 		);
-		expect(slug).toBe("settings-page");
+		expect(slug).toBe("dark-mode-settings-page");
 		shared.add(slug); // ← caller responsibility
 
 		slug = slugFromTaskWithExisting("add light mode to settings page", shared);
-		// "settings-page" collides → "mode-settings" (next tail 2-word)
-		expect(slug).toBe("mode-settings");
+		// "dark-mode-settings-page" collides → "light-mode-settings-page" (next 4-word tail)
+		expect(slug).toBe("light-mode-settings-page");
 		shared.add(slug);
 
 		slug = slugFromTaskWithExisting(
 			"add theme toggle to settings page",
 			shared,
 		);
-		// "settings-page" and "mode-settings" collide
-		// 2-word: "toggle-settings" → unique
-		expect(slug).toBe("toggle-settings");
+		// "dark-mode-settings-page" and "light-mode-settings-page" collide
+		// 4-word: "theme-toggle-settings-page" → unique (tail-most available)
+		expect(slug).toBe("theme-toggle-settings-page");
 	});
 
-	test("tasks with no clear object — 2-word from tail still wins", () => {
+	test("three words — 3-word window", () => {
 		// "clean up codebase" → meaningful: ["clean", "up", "codebase"]
-		// 2-word tail: "up-codebase"
-		expect(slugFromTask("clean up codebase")).toBe("up-codebase");
+		// 3-word: "clean-up-codebase"
+		expect(slugFromTask("clean up codebase")).toBe("clean-up-codebase");
 	});
 
 	test("mixed — shared Set drives cross-task differentiation", () => {
@@ -229,36 +245,41 @@ describe("comparison: legacy vs tail-first", () => {
 			"implement rate limiting for API endpoints",
 			shared,
 		);
-		expect(slug).toBe("api-endpoints");
+		// "implement rate limiting for API endpoints" → ["implement", "rate", "limiting", "api", "endpoints"]
+		// 4-word tail: "rate-limiting-api-endpoints"
+		expect(slug).toBe("rate-limiting-api-endpoints");
 		shared.add(slug);
 
 		slug = slugFromTaskWithExisting(
 			"implement retry logic for API endpoints",
 			shared,
 		);
-		// "api-endpoints" collides → "logic-api" (next 2-word tail)
-		expect(slug).toBe("logic-api");
+		// "implement retry logic for API endpoints" → ["implement", "retry", "logic", "api", "endpoints"]
+		// 4-word tail: "retry-logic-api-endpoints"
+		expect(slug).toBe("retry-logic-api-endpoints");
 	});
 });
 
 describe("slugFromTask edge cases", () => {
 	test("numeric characters preserved", () => {
 		// "fix bug in v2 API" → meaningful: ["fix", "bug", "v2", "api"]
-		// 2-word tail: "v2-api"
-		expect(slugFromTask("fix bug in v2 API")).toBe("v2-api");
-		// "add node20 support" → meaningful: ["add", "node20", "support"]
-		// 2-word tail: "support-node20"
-		expect(slugFromTask("add support for node20")).toBe("support-node20");
+		// 4-word: "fix-bug-v2-api"
+		expect(slugFromTask("fix bug in v2 API")).toBe("fix-bug-v2-api");
+		// "add support for node20" → meaningful: ["add", "support", "node20"]
+		// 3-word: "add-support-node20"
+		expect(slugFromTask("add support for node20")).toBe("add-support-node20");
 	});
 
 	test("camelCase treated as one word", () => {
 		// "fix loginPage bug" → meaningful: ["fix", "loginpage", "bug"]
-		// 2-word tail: "loginpage-bug"
-		expect(slugFromTask("fix loginPage bug")).toBe("loginpage-bug");
+		// 3-word: "fix-loginpage-bug"
+		expect(slugFromTask("fix loginPage bug")).toBe("fix-loginpage-bug");
 	});
 
 	test("mixed case normalized", () => {
-		expect(slugFromTask("Fix AUTH Bug")).toBe("auth-bug");
+		// "Fix AUTH Bug" → meaningful: ["fix", "auth", "bug"]
+		// 3-word: "fix-auth-bug"
+		expect(slugFromTask("Fix AUTH Bug")).toBe("fix-auth-bug");
 	});
 });
 

@@ -115,11 +115,11 @@ export function slugFromTaskWithExisting(
 	if (words.length === 0) return "agent";
 
 	// Collect all windows grouped by size, then flatten in strict priority order:
-	// all size-2 (tail→head), then all size-3 (tail→head), then all size-1 (tail→head).
+	// all size-4 (tail→head), then all size-3 (tail→head), then all size-2 (tail→head).
 	// Within each size group, iterate start tail→head so the most specific words
 	// (those closest to the end of the task) appear first.
 	const candidates: string[] = [];
-	for (const size of [2, 3, 1] as const) {
+	for (const size of [4, 3, 2, 1] as const) {
 		if (size > words.length) continue;
 		for (let start = words.length - size; start >= 0; start--) {
 			const window = words.slice(start, start + size);
