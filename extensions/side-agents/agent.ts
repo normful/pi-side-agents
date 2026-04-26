@@ -1102,7 +1102,7 @@ export function emitKickoffPromptMessage(
 }
 
 export async function renderStatusLine(
-	pi: ExtensionAPI,
+	_pi: ExtensionAPI,
 	ctx: ExtensionContext,
 ): Promise<void> {
 	if (!ctx.hasUI) return;
