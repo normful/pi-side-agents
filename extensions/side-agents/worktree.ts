@@ -207,8 +207,13 @@ export async function syncParallelAgentPiFiles(
 	if (!(await exists(parentPiDir))) return;
 
 	const sourceEntries = await fs.readdir(parentPiDir, { withFileTypes: true });
+	const PARENT_SYMLINK_TARGET_FILES = new Set([
+		"side-agent-finish.sh",
+		"side-agent-start.sh",
+		"side-agent-bootstrap.sh",
+	]);
 	const names = sourceEntries
-		.filter((entry) => entry.name.startsWith("side-agent-"))
+		.filter((entry) => PARENT_SYMLINK_TARGET_FILES.has(entry.name))
 		.map((entry) => entry.name);
 	if (names.length === 0) return;
 

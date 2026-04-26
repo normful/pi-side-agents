@@ -160,13 +160,15 @@ fi
 		: "";
 
 	const piCmdLine = useCco
-		? `PI_CMD=(cco --safe --add-dir "~/.config:ro" --add-dir "~/.local:rw" --add-dir "~/.bun:ro" --add-dir "~/Library/Application Support/:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$(dirname "$PARENT_SESSION"):ro" --add-dir "$RESOLVED_TMPDIR:rw" --add-dir "$PARENT_REPO:rw" --add-dir "$STATE_ROOT:rw" --add-dir "$RUNTIME_DIR:rw" pi --skill "$CHILD_SKILLS_DIR")`
-		: `PI_CMD=(pi --skill "$CHILD_SKILLS_DIR")`;
+		? `PI_CMD=(cco --safe --add-dir "~/.config:ro" --add-dir "~/.local:rw" --add-dir "~/.bun:ro" --add-dir "~/Library/Application Support/:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$(dirname "$PARENT_SESSION"):ro" --add-dir "$RESOLVED_TMPDIR:rw" --add-dir "$PARENT_REPO:rw" --add-dir "$STATE_ROOT:rw" --add-dir "$RUNTIME_DIR:rw" pi --skill "$PI_SIDE_AGENTS_ROOT/.pi/side-agents/finish")`
+		: `PI_CMD=(pi --skill "$PI_SIDE_AGENTS_ROOT/.pi/side-agents/finish")`;
 
 	return `#!/usr/bin/env bash
 set -euo pipefail
 
-${ccoCheckBlock}AGENT_ID=${agentId}
+${ccoCheckBlock}
+
+AGENT_ID=${agentId}
 PARENT_SESSION=${parentSession}
 PARENT_REPO=${parentRepo}
 STATE_ROOT=${stateRoot}
@@ -178,7 +180,6 @@ MODEL_SPEC=${modelSpec}
 RUNTIME_DIR=${runtimeDir}
 RESOLVED_TMPDIR=$(realpath "$TMPDIR" 2>/dev/null || echo "$TMPDIR")
 START_SCRIPT="$WORKTREE/.pi/side-agent-start.sh"
-CHILD_SKILLS_DIR="$WORKTREE/.pi/side-agent-skills"
 
 export ${envAgentId}="$AGENT_ID"
 export ${envParentSession}="$PARENT_SESSION"

@@ -152,7 +152,6 @@ This is how child worktrees discover:
 
 - `.pi/side-agent-start.sh`
 - `.pi/side-agent-finish.sh`
-- `.pi/side-agent-skills/` (child-only skill directory)
 - optional `.pi/side-agent-bootstrap.sh`
 
 ## 6) Tmux orchestrator + launcher

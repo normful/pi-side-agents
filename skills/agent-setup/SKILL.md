@@ -243,7 +243,7 @@ gh pr create --base "$MAIN_BRANCH" --head "$BRANCH" --fill
 
 ---
 
-### File 3: `$GIT_ROOT/.pi/side-agent-skills/finish/SKILL.md`
+### File 3: `$GIT_ROOT/.pi/side-agents/finish/SKILL.md`
 
 This is a skill for the **child agent** (not this session) that tells it how to finalize its work.
 
@@ -293,7 +293,7 @@ When the user explicitly approves the work (e.g. says "LGTM", "ship it"):
 
 Tell the user which files were created, updated, or skipped, including backup/reference files, and how to proceed.
 
-Explicitly remind the user that `.pi/side-agent-*` files are local runtime setup and should stay untracked (not committed to git).
+Explicitly remind the user that `.pi/side-agent*` files are local runtime setup and should stay untracked (not committed to git).
 
 Tell user they can now:
 - Start an agent: `/agent <task description>`
