@@ -20,7 +20,6 @@ import {
 	type ExitMarker,
 	getMetaDir,
 	getStateRoot,
-	isChildRuntime,
 	isTerminalStatus,
 	mutateRegistry,
 	prepareFreshRuntimeDir,
@@ -59,7 +58,6 @@ const ENV_AGENT_ID = "PI_SIDE_AGENT_ID";
 const ENV_PARENT_SESSION = "PI_SIDE_PARENT_SESSION";
 const STATUS_KEY = "side-agents";
 const CHILD_LINK_ENTRY_TYPE = "side-agent-link";
-const STATUS_UPDATE_MESSAGE_TYPE = "side-agent-status";
 const PROMPT_UPDATE_MESSAGE_TYPE = "side-agent-prompt";
 
 export type AgentStatusSnapshot = {
@@ -981,7 +979,6 @@ export async function ensureChildSessionLinked(
 }
 
 export { summarizeTask } from "./prompt.js";
-export { isChildRuntime } from "./registry.js";
 
 // Child-session rendering
 
@@ -1075,59 +1072,6 @@ export function formatLabelPrefix(
 	return theme.fg("muted", prefix);
 }
 
-export function formatStatusTransitionMessage(
-	transition: StatusTransitionNotice,
-	theme?: ThemeForeground,
-): string {
-	const win =
-		transition.tmuxWindowIndex !== undefined
-			? ` (tmux #${transition.tmuxWindowIndex})`
-			: "";
-	const from = formatStatusWord(transition.fromStatus, theme);
-	const to = formatStatusWord(transition.toStatus, theme);
-	return `side-agent ${transition.id}: ${from} -> ${to}${win}`;
-}
-
-export function emitStatusTransitions(
-	pi: ExtensionAPI,
-	ctx: ExtensionContext,
-	transitions: StatusTransitionNotice[],
-): void {
-	if (isChildRuntime()) return;
-
-	for (const transition of transitions) {
-		const message = formatStatusTransitionMessage(
-			transition,
-			ctx.hasUI ? ctx.ui.theme : undefined,
-		);
-		pi.sendMessage(
-			{
-				customType: STATUS_UPDATE_MESSAGE_TYPE,
-				content: message,
-				display: true,
-				details: {
-					agentId: transition.id,
-					fromStatus: transition.fromStatus,
-					toStatus: transition.toStatus,
-					tmuxWindowIndex: transition.tmuxWindowIndex,
-					emittedAt: Date.now(),
-				},
-			},
-			{
-				triggerTurn: false,
-				deliverAs: "followUp",
-			},
-		);
-
-		if (
-			ctx.hasUI &&
-			(transition.toStatus === "failed" || transition.toStatus === "crashed")
-		) {
-			ctx.ui.notify(message, "error");
-		}
-	}
-}
-
 export function emitKickoffPromptMessage(
 	pi: ExtensionAPI,
 	started: StartAgentResult,
@@ -1160,7 +1104,6 @@ export function emitKickoffPromptMessage(
 export async function renderStatusLine(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-	options?: { emitTransitions?: boolean },
 ): Promise<void> {
 	if (!ctx.hasUI) return;
 
@@ -1170,12 +1113,7 @@ export async function renderStatusLine(
 		a.id.localeCompare(b.id),
 	);
 
-	if (options?.emitTransitions ?? true) {
-		const transitions = collectStatusTransitions(stateRoot, agents);
-		if (transitions.length > 0) {
-			emitStatusTransitions(pi, ctx, transitions);
-		}
-	} else if (!statusSnapshotsByStateRoot.has(stateRoot)) {
+	if (!statusSnapshotsByStateRoot.has(stateRoot)) {
 		collectStatusTransitions(stateRoot, agents);
 	}
 

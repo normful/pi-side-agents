@@ -522,6 +522,6 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 
 	pi.on("before_agent_start", async (_event, ctx) => {
 		setStatusPollContext(pi, ctx);
-		await renderStatusLine(pi, ctx, { emitTransitions: false }).catch(() => {});
+		await renderStatusLine(pi, ctx).catch(() => {});
 	});
 }
