@@ -74,9 +74,9 @@ describe("slugFromTask (tail-first sliding window, min 4 words)", () => {
 		// start=1: "dark-mode-toggle-settings"
 		// start=0: "implement-dark-mode-toggle"
 		// Preferred: "mode-toggle-settings-page"
-		expect(
-			slugFromTask("implement dark mode toggle for settings page"),
-		).toBe("mode-toggle-settings-page");
+		expect(slugFromTask("implement dark mode toggle for settings page")).toBe(
+			"mode-toggle-settings-page",
+		);
 	});
 
 	test("three words — 3-word window", () => {

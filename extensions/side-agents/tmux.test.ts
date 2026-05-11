@@ -200,7 +200,7 @@ describe("buildLaunchScript", () => {
 		// Script should define RESOLVED_TMPDIR by resolving TMPDIR
 		expect(script).toContain('RESOLVED_TMPDIR=$(realpath "$TMPDIR"');
 		// RESOLVED_TMPDIR should be used in cco sandbox with read-write
-		expect(script).toContain('$RESOLVED_TMPDIR:rw');
+		expect(script).toContain("$RESOLVED_TMPDIR:rw");
 	});
 
 	test("runs pi directly without cco when useCco is false", () => {
