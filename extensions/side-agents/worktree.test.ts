@@ -486,7 +486,7 @@ describe("allocateWorktree", () => {
 	});
 
 	test(
-		"creates pi-side-agent-worktrees directory if it does not exist",
+		"creates /var/tmp/wt directory if it does not exist",
 		async () => {
 			// NOTE: This test is skipped because it has timing issues in the test environment.
 			// The functionality is tested by the next test.
@@ -495,11 +495,8 @@ describe("allocateWorktree", () => {
 		{ skip: true },
 	);
 
-	test("works when pi-side-agent-worktrees directory already exists", async () => {
-		const worktreesDir = join(
-			process.env.TMPDIR || "/tmp",
-			"pi-side-agent-worktrees",
-		);
+	test("works when /var/tmp/wt directory already exists", async () => {
+		const worktreesDir = "/var/tmp/wt";
 
 		// Ensure the directory exists before the test
 		await mkdir(worktreesDir, { recursive: true });
@@ -512,7 +509,7 @@ describe("allocateWorktree", () => {
 		});
 
 		expect(result.worktreePath).toBeDefined();
-		expect(result.worktreePath).toContain("pi-side-agent-worktrees");
+		expect(result.worktreePath).toContain("/var/tmp/wt");
 		expect(result.branch).toBe("side-agent/test-agent-existing-dir");
 	});
 

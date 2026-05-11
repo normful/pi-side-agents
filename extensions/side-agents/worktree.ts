@@ -1,5 +1,4 @@
 import { promises as fs } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { atomicWrite, ensureDir, readJsonFile } from "./fs.js";
 import type { RegistryFile } from "./registry.js";
@@ -267,15 +266,15 @@ export async function allocateWorktree(options: {
 		gitRunOpts,
 	).stdout.trim();
 
-	// Use mkdtemp to create a fresh worktree directory in tmp
-	// Format: <tmpdir>/pi-side-agent-worktrees/<repoBasename>-<4-digit-index>
-	// We don't need to scan for existing slots anymore — mkdtemp always creates fresh dirs
+	// Use mkdtemp to create a fresh worktree directory in /var/tmp/wt
+	// Format: /var/tmp/wt/<repoBasename>-<random>
+	// /var/tmp survives reboots (unlike /tmp), so worktree state is preserved
+	// across restarts for debugging.
+	const WORKTREE_BASE = "/var/tmp/wt";
 	const repoBasename = repoRoot.split("/").pop() ?? "repo";
-	const worktreeParentDirName = "pi-side-agent-worktrees";
-	const worktreeParentDir = join(tmpdir(), worktreeParentDirName);
-	await fs.mkdir(worktreeParentDir, { recursive: true });
+	await fs.mkdir(WORKTREE_BASE, { recursive: true });
 	const worktreePath = await fs.mkdtemp(
-		join(worktreeParentDir, `${repoBasename}-`),
+		join(WORKTREE_BASE, `${repoBasename}-`),
 	);
 
 	const chosenPath = worktreePath;
