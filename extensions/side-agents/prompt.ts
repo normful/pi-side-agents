@@ -1,15 +1,15 @@
 import { promises as fs } from "node:fs";
 import { basename, join } from "node:path";
-import type { Message } from "@mariozechner/pi-ai";
-import { complete } from "@mariozechner/pi-ai";
+import type { Message } from "@earendil-works/pi-ai";
+import { complete } from "@earendil-works/pi-ai";
 import type {
 	ExtensionContext,
 	SessionEntry,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
 	convertToLlm,
 	serializeConversation,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { ensureDir } from "./fs.js";
 import { type AgentRecord, getRuntimeDir } from "./registry.js";
 import {

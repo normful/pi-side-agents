@@ -3,7 +3,7 @@ import { basename } from "node:path";
 import type {
 	AgentToolResult,
 	ExtensionAPI,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import {
 	agentCheckPayload,

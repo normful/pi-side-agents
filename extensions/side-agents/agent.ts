@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { atomicWrite, ensureDir, fileExists, readJsonFile } from "./fs.js";
 import {
 	appendKickoffPromptToBacklog,
@@ -280,7 +280,7 @@ async function generateSlug(
 	}
 
 	try {
-		const { complete } = await import("@mariozechner/pi-ai");
+		const { complete } = await import("@earendil-works/pi-ai");
 		const userMessage = {
 			role: "user" as const,
 			content: [
