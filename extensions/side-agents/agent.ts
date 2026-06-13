@@ -98,6 +98,10 @@ const THINKING_LEVELS = new Set([
 	"xhigh",
 ]);
 
+// Backlog.log truncation thresholds (keep files from growing unbounded)
+const BACKLOG_FILE_MAX_SIZE = 256 * 1024; // 256KB — truncate when exceeded
+const BACKLOG_TRUNCATE_KEEP_LINES = 50; // lines retained after truncation
+
 // Display/type helpers
 
 export function statusShort(status: AgentStatus): string {
@@ -420,6 +424,9 @@ export async function refreshOneAgentRuntime(
 	record: AgentRecord,
 ): Promise<RefreshRuntimeResult> {
 	if (record.status === "done") {
+		if (record.logPath) {
+			await truncateBacklogFile(record.logPath);
+		}
 		await cleanupWorktreeLockBestEffort(record.worktreePath, record.id);
 		return { removeFromRegistry: true };
 	}
@@ -437,6 +444,9 @@ export async function refreshOneAgentRuntime(
 			);
 			if (!changed) {
 				record.updatedAt = new Date().toISOString();
+			}
+			if (record.logPath) {
+				await truncateBacklogFile(record.logPath);
 			}
 			await cleanupWorktreeLockBestEffort(record.worktreePath, record.id);
 			if (exit.exitCode === 0) {
@@ -464,6 +474,9 @@ export async function refreshOneAgentRuntime(
 	if (!isTerminalStatus(record.status)) {
 		record.finishedAt = record.finishedAt ?? new Date().toISOString();
 		await setRecordStatus(stateRoot, record, "crashed");
+		if (record.logPath) {
+			await truncateBacklogFile(record.logPath);
+		}
 		if (!record.error) {
 			record.error =
 				"tmux window disappeared before an exit marker was recorded";
@@ -527,7 +540,13 @@ export async function getBacklogTail(
 	if (record.logPath && (await fileExists(record.logPath))) {
 		try {
 			const raw = await fs.readFile(record.logPath, "utf8");
-			const tailed = sanitizeBacklogLines(selectBacklogTailLines(raw, lines));
+			const tailed = sanitizeBacklogLines(
+				selectBacklogTailLines(raw, lines),
+			);
+			// Truncate oversized files on read so they don't grow unbounded
+			if (raw.length > BACKLOG_FILE_MAX_SIZE) {
+				await truncateBacklogFile(record.logPath);
+			}
 			if (tailed.length > 0) return tailed;
 		} catch {
 			// fall through
@@ -535,6 +554,33 @@ export async function getBacklogTail(
 	}
 
 	return [];
+}
+
+/**
+ * Truncate backlog.log in-place when it exceeds BACKLOG_FILE_MAX_SIZE.
+ * Uses in-place truncation (same inode) so any active tmux pipe (cat >>)
+ * continues appending correctly. Best-effort; never blocks caller.
+ */
+async function truncateBacklogFile(logPath: string): Promise<void> {
+	try {
+		const raw = await fs.readFile(logPath, "utf8");
+		if (raw.length <= BACKLOG_FILE_MAX_SIZE) return;
+		const tailed = sanitizeBacklogLines(
+			selectBacklogTailLines(raw, BACKLOG_TRUNCATE_KEEP_LINES),
+		);
+		if (tailed.length === 0) return;
+		const content = tailed.join("\n") + "\n";
+		// In-place: open r+ so we operate on the same inode as any tmux pipe
+		const fd = await fs.open(logPath, "r+");
+		try {
+			await fd.truncate(content.length);
+			await fd.write(content, 0, "utf8");
+		} finally {
+			await fd.close();
+		}
+	} catch {
+		// Best-effort; must not block agent status check or completion.
+	}
 }
 
 // Agent lifecycle
