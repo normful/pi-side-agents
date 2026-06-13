@@ -690,3 +690,306 @@ describe("refreshOneAgentRuntime crash lock behavior", () => {
 		expect(record.status).toBe("crashed");
 	});
 });
+
+// ============================================================================
+// Commit db5009c: backlog.log truncation tests
+// ============================================================================
+
+describe("backlog.log truncation on read (getBacklogTail)", () => {
+	let testDir: string;
+
+	async function setupTestDir(): Promise<string> {
+		const dir = join(
+			tmpdir(),
+			`backlog-trunc-read-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
+		await mkdir(dir, { recursive: true });
+		return dir;
+	}
+
+	beforeEach(async () => {
+		testDir = await setupTestDir();
+	});
+
+	afterEach(async () => {
+		if (testDir) {
+			await rm(testDir, { recursive: true, force: true });
+		}
+	});
+
+	async function generateOversizedLog(
+		logPath: string,
+	): Promise<{ lastLineIndex: number; totalLines: number }> {
+		const lines: string[] = [];
+		let size = 0;
+		const targetSize = 300 * 1024; // 300KB > 256KB threshold
+		let i = 0;
+		while (size < targetSize) {
+			const line = `line ${i}: this is filler content to make the backlog log oversized\n`;
+			lines.push(line);
+			size += line.length;
+			i++;
+		}
+		await writeFile(logPath, lines.join(""));
+		return { lastLineIndex: i - 1, totalLines: i };
+	}
+
+	test("truncates file when it exceeds threshold", async () => {
+		const { getBacklogTail } = await import("./agent.js");
+
+		const logPath = join(testDir, "backlog.log");
+		const { lastLineIndex } = await generateOversizedLog(logPath);
+
+		const record = {
+			id: "overflow-agent",
+			task: "test",
+			status: "running" as const,
+			logPath,
+			startedAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		const result = await getBacklogTail(record, 10);
+
+		// Returned tail should have the last 10 lines
+		expect(result.length).toBe(10);
+		// Last returned line should reference the last written line index
+		expect(result[result.length - 1]).toContain(String(lastLineIndex));
+
+		// File on disk should be truncated (well under 256KB now)
+		const stat = await Bun.file(logPath).stat();
+		expect(stat.size).toBeLessThan(10 * 1024);
+	});
+
+	test("does NOT truncate file when under threshold", async () => {
+		const { getBacklogTail } = await import("./agent.js");
+
+		const logPath = join(testDir, "backlog.log");
+		// Write a small file (~1KB)
+		const smallLines = Array.from({ length: 20 }, (_, i) => `small line ${i}\n`);
+		await writeFile(logPath, smallLines.join(""));
+		const originalSize = (await Bun.file(logPath).stat()).size;
+
+		const record = {
+			id: "small-agent",
+			task: "test",
+			status: "running" as const,
+			logPath,
+			startedAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		const result = await getBacklogTail(record, 10);
+		expect(result.length).toBeGreaterThan(0);
+
+		// File size should remain unchanged
+		const finalSize = (await Bun.file(logPath).stat()).size;
+		expect(finalSize).toBe(originalSize);
+	});
+
+	test("handles empty backlog.log gracefully", async () => {
+		const { getBacklogTail } = await import("./agent.js");
+
+		const logPath = join(testDir, "backlog.log");
+		await writeFile(logPath, ""); // empty file
+
+		const record = {
+			id: "empty-agent",
+			task: "test",
+			status: "running" as const,
+			logPath,
+			startedAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		const result = await getBacklogTail(record, 10);
+		expect(result).toEqual([]);
+	});
+
+	test("handles missing logPath gracefully", async () => {
+		const { getBacklogTail } = await import("./agent.js");
+
+		const record = {
+			id: "no-log-agent",
+			task: "test",
+			status: "running" as const,
+			// No logPath set
+			startedAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		const result = await getBacklogTail(record, 10);
+		expect(result).toEqual([]);
+	});
+});
+
+describe("backlog.log truncation on agent completion (refreshOneAgentRuntime)", () => {
+	let testDir: string;
+
+	async function setupTestDir(): Promise<string> {
+		const dir = join(
+			tmpdir(),
+			`backlog-trunc-complete-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
+		await mkdir(dir, { recursive: true });
+		return dir;
+	}
+
+	beforeEach(async () => {
+		testDir = await setupTestDir();
+	});
+
+	afterEach(async () => {
+		if (testDir) {
+			await rm(testDir, { recursive: true, force: true });
+		}
+	});
+
+	async function generateOversizedLog(
+		logPath: string,
+	): Promise<{ lastLineIndex: number }> {
+		const lines: string[] = [];
+		let size = 0;
+		const targetSize = 300 * 1024;
+		let i = 0;
+		while (size < targetSize) {
+			const line = `line ${i}: filler content for completion truncation test\n`;
+			lines.push(line);
+			size += line.length;
+			i++;
+		}
+		await writeFile(logPath, lines.join(""));
+		return { lastLineIndex: i - 1 };
+	}
+
+	test("truncates backlog on already-done agent", async () => {
+		const { refreshOneAgentRuntime } = await import("./agent.js");
+
+		const logPath = join(testDir, "backlog.log");
+		await generateOversizedLog(logPath);
+
+		const record = {
+			id: "done-trunc",
+			task: "test",
+			status: "done" as const,
+			worktreePath: testDir,
+			logPath,
+			startedAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		await refreshOneAgentRuntime(testDir, record);
+
+		const stat = await Bun.file(logPath).stat();
+		expect(stat.size).toBeLessThan(256 * 1024);
+	});
+
+	test("truncates backlog on successful exit (exit.json with code 0)", async () => {
+		const { refreshOneAgentRuntime } = await import("./agent.js");
+
+		const logPath = join(testDir, "backlog.log");
+		await generateOversizedLog(logPath);
+
+		const exitFile = join(testDir, "exit.json");
+		await writeFile(
+			exitFile,
+			JSON.stringify({ exitCode: 0, finishedAt: new Date().toISOString() }),
+		);
+
+		const record = {
+			id: "success-trunc",
+			task: "test",
+			status: "running" as const,
+			worktreePath: testDir,
+			exitFile,
+			logPath,
+			startedAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		await refreshOneAgentRuntime(testDir, record);
+
+		const stat = await Bun.file(logPath).stat();
+		expect(stat.size).toBeLessThan(256 * 1024);
+	});
+
+	test("truncates backlog on failed exit (exit.json with code 1)", async () => {
+		const { refreshOneAgentRuntime } = await import("./agent.js");
+
+		const logPath = join(testDir, "backlog.log");
+		await generateOversizedLog(logPath);
+
+		const exitFile = join(testDir, "exit.json");
+		await writeFile(
+			exitFile,
+			JSON.stringify({ exitCode: 1, finishedAt: new Date().toISOString() }),
+		);
+
+		const record = {
+			id: "failed-trunc",
+			task: "test",
+			status: "running" as const,
+			worktreePath: testDir,
+			exitFile,
+			logPath,
+			startedAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		await refreshOneAgentRuntime(testDir, record);
+
+		const stat = await Bun.file(logPath).stat();
+		expect(stat.size).toBeLessThan(256 * 1024);
+	});
+
+	test("truncates backlog on crashed agent (tmux window vanished)", async () => {
+		const { refreshOneAgentRuntime } = await import("./agent.js");
+
+		const logPath = join(testDir, "backlog.log");
+		await generateOversizedLog(logPath);
+
+		const record = {
+			id: "crash-trunc",
+			task: "test",
+			status: "running" as const,
+			worktreePath: testDir,
+			logPath,
+			tmuxWindowId: "@nonexistent-window-99999",
+			startedAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		await refreshOneAgentRuntime(testDir, record);
+
+		const stat = await Bun.file(logPath).stat();
+		expect(stat.size).toBeLessThan(256 * 1024);
+		expect(record.status).toBe("crashed");
+	});
+
+	test("does not truncate when logPath is not set", async () => {
+		const { refreshOneAgentRuntime } = await import("./agent.js");
+
+		// Create a minimal exit.json to trigger the exit path
+		const exitFile = join(testDir, "exit.json");
+		await writeFile(
+			exitFile,
+			JSON.stringify({ exitCode: 0, finishedAt: new Date().toISOString() }),
+		);
+
+		const record = {
+			id: "no-logpath",
+			task: "test",
+			status: "running" as const,
+			worktreePath: testDir,
+			exitFile,
+			// No logPath set
+			startedAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		// Should not throw despite missing logPath
+		await expect(
+			refreshOneAgentRuntime(testDir, record),
+		).resolves.toBeDefined();
+	});
+});
