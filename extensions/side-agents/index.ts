@@ -51,7 +51,22 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 		name: "agent-start",
 		label: "Agent Start",
 		description:
-			"Start a background coding AI agent. The agent yields (waiting_user) when completes or it needs input. Returns agent metadata including id, tmuxWindowId, worktreePath, and branch. The agent's work is committed to a branch in its git worktree",
+			"Launch an agent in an isolated worktree with zero shared context. The description parameter is\n" +
+			"the agent's only prompt — write it as a fully self-contained task brief for a junior developer who\n" +
+			"just walked into the room cold.\n" +
+			"\n" +
+			"A complete description always includes:\n" +
+			"- absolute paths to any files the agent must read first\n" +
+			"- per-file breakdown: source path, what to do, approach, test nature (pure TS vs React component\n" +
+			"vs hook)\n" +
+			"- inline project conventions (imports, mock patterns, assertion style) rather than \"follow\n" +
+			"existing patterns\"\n" +
+			"- exact verification commands and order (typecheck, test, lint)\n" +
+			"- exact commit message\n" +
+			"- clear done-definition: what signals completion\n" +
+			"\n" +
+			"Returns agent id, tmuxWindowId, worktreePath, branch. Agent yields (waiting_user) when done or\n" +
+			"blocked.",
 		parameters: Type.Object({
 			description: Type.String({
 				description:
