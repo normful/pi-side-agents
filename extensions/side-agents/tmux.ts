@@ -218,6 +218,8 @@ if [[ -n "$MODEL_SPEC" ]]; then
   PI_CMD+=(--model "$MODEL_SPEC")
 fi
 
+PI_CMD+=(--append-system-prompt "The 'finish' skill is at \$WORKTREE/.pi/side-agents/finish/SKILL.md. ALWAYS git commit all changes before using the 'finish' skill.")
+
 set +e
 "\${PI_CMD[@]}" "$(cat "$PROMPT_FILE")"
 exit_code=$?
