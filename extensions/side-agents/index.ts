@@ -59,8 +59,8 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 			"- absolute paths to any files the sideagent must read first\n" +
 			"- per-file breakdown: source path, what to do, approach, test nature (pure TS vs React component\n" +
 			"vs hook)\n" +
-			"- inline project conventions (imports, mock patterns, assertion style) rather than \"follow\n" +
-			"existing patterns\"\n" +
+			'- inline project conventions (imports, mock patterns, assertion style) rather than "follow\n' +
+			'existing patterns"\n' +
 			"- exact verification commands and order (typecheck, test, lint)\n" +
 			"- exact commit message\n" +
 			"- clear done-definition: what signals completion\n" +
@@ -144,7 +144,9 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 		description:
 			"Check background sideagent's current status and retrieve recent output",
 		parameters: Type.Object({
-			id: Type.String({ description: "sideagent id returned by sideagent-start" }),
+			id: Type.String({
+				description: "sideagent id returned by sideagent-start",
+			}),
 		}),
 		async execute(
 			_toolCallId,
@@ -216,7 +218,9 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 		description:
 			"Send text to a background sideagent's tmux pane. For immediate interruption or forced commands, prefix prompt with: '!' to interrupt first, '/' for slash commands (e.g. '/quit' to terminate)",
 		parameters: Type.Object({
-			id: Type.String({ description: "sideagent id returned by sideagent-start" }),
+			id: Type.String({
+				description: "sideagent id returned by sideagent-start",
+			}),
 			prompt: Type.String({
 				description: "",
 			}),
@@ -539,11 +543,4 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		setStatusPollContext(pi, ctx);
 		await renderStatusLine(pi, ctx).catch(() => {});
 	});
-}
-;
-}
-
-	});
-}
-;
 }
