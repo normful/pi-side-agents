@@ -1,6 +1,7 @@
 ---
 name: agent-setup
-description: Initialize or update setup for pi-side-agents (running asynchronous agents spawned/controlled from main session)
+description: Initialize or update setup for pi-side-agents (running asynchronous agents spawned into their own new tmux windows)
+modified: 2026-07-12T01:34:43+0900
 ---
 
 # Parallel Agent Setup
@@ -26,8 +27,8 @@ Ask the user the following questions. You may ask them all at once or one at a t
 2. **Bootstrap steps** – Does each agent worktree need custom setup before work begins? For example: `npm install`, copying `.env` files, running migrations. If yes, what commands specifically?
 
 3. **Finish policy** – When an agent finishes, should it:
-   - **Rebase locally, then fast-forward** into the main branch in the parent checkout (default), or
-   - **Open a pull request** instead?
+   - Rebase locally then merge into the main branch in the parent checkout (default), or
+   - Open a pull request instead?
 
 4. **Overwrite existing files** – If `.pi/side-agent-start.sh` or similar already exist, overwrite them? *(default: no — skip existing files)*
 
@@ -68,20 +69,20 @@ MAIN_BRANCH="MAIN_BRANCH_VALUE"
 
 BRANCH="$(git -C "$WORKTREE" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
 if [[ -z "$BRANCH" ]] || [[ "$BRANCH" == "HEAD" ]]; then
-  echo "[side-agent-start] Could not determine current branch in $WORKTREE."
+  echo "Could not determine current branch in $WORKTREE"
   exit 1
 fi
 
-echo "[side-agent-start] agent=$AGENT_ID branch=$BRANCH main=$MAIN_BRANCH"
+echo "agent=$AGENT_ID branch=$BRANCH main=$MAIN_BRANCH"
 
 if [[ "$BRANCH" == "$MAIN_BRANCH" ]]; then
-  echo "[side-agent-start] ERROR: child worktree is on $MAIN_BRANCH; expected a dedicated agent branch."
+  echo "ERROR: child worktree is on $MAIN_BRANCH; expected a dedicated agent branch."
   exit 1
 fi
 
 # The worktree is already set to the parent's HEAD by the TypeScript extension.
 # Just verify it's on the right branch.
-echo "[side-agent-start] Worktree based on parent HEAD ($(git -C "$WORKTREE" rev-parse --short HEAD))."
+echo "Worktree based on parent HEAD ($(git -C "$WORKTREE" rev-parse --short HEAD))."
 ```
 
 - If the user wants **no custom bootstrap**: append the optional hook block:
@@ -108,7 +109,7 @@ Write this file and make it executable (`chmod +x`).
 
 Use `MAIN_BRANCH` set to whatever the user specified (or `main` by default).
 
-**For local rebase policy** (default), use this content — substituting `MAIN_BRANCH_VALUE` with the actual branch name:
+**For local rebase and merge policy** (default), use this content — substituting `MAIN_BRANCH_VALUE` with the actual branch name:
 
 ```bash
 #!/usr/bin/env bash
@@ -131,13 +132,13 @@ if [[ "$BRANCH" == "HEAD" ]]; then
 fi
 
 if [[ -z "$PARENT_ROOT" ]]; then
-  echo "[side-agent-finish] Missing parent checkout path."
+  echo "Missing parent checkout path."
   echo "Usage: PI_SIDE_PARENT_REPO=/path/to/parent .pi/side-agent-finish.sh"
   exit 1
 fi
 
 if [[ -z "$BRANCH" ]]; then
-  echo "[side-agent-finish] Could not determine current branch."
+  echo "Could not determine current branch."
   exit 1
 fi
 
@@ -166,18 +167,18 @@ acquire_lock() {
       local holder_pid
       holder_pid="$(grep -o '"pid":[0-9]*' "$LOCK_FILE" 2>/dev/null | head -n 1 | grep -o '[0-9]*' || true)"
       if [[ -n "$holder_pid" ]] && ! kill -0 "$holder_pid" 2>/dev/null; then
-        echo "[side-agent-finish] Removing stale merge lock (pid $holder_pid no longer running)."
+        echo "Removing stale merge lock (pid $holder_pid no longer running)."
         rm -f "$LOCK_FILE"
         continue
       fi
     fi
 
     if [[ "$elapsed" -ge "$MERGE_LOCK_TIMEOUT" ]]; then
-      echo "[side-agent-finish] Timed out after ${MERGE_LOCK_TIMEOUT}s waiting for merge lock."
-      echo "[side-agent-finish] Stale lock? Inspect: $LOCK_FILE"
+      echo "Timed out after ${MERGE_LOCK_TIMEOUT}s waiting for merge lock."
+      echo "Stale lock? Inspect: $LOCK_FILE"
       exit 3
     fi
-    echo "[side-agent-finish] Waiting for merge lock... (${elapsed}s / ${MERGE_LOCK_TIMEOUT}s)"
+    echo "Waiting for merge lock... (${elapsed}s / ${MERGE_LOCK_TIMEOUT}s)"
     sleep 1
   done
 }
@@ -189,9 +190,9 @@ release_lock() {
 trap 'release_lock' EXIT
 
 while true; do
-  echo "[side-agent-finish] Reconciling child branch: git rebase $MAIN_BRANCH"
+  echo "Running: 'git rebase $MAIN_BRANCH' to replay $BRANCH commits on top of $MAIN_BRANCH"
   if ! git rebase "$MAIN_BRANCH"; then
-    echo "[side-agent-finish] Conflict while rebasing $BRANCH onto $MAIN_BRANCH."
+    echo "Conflict while rebasing $BRANCH onto $MAIN_BRANCH."
     echo "Resolve conflicts (git status / git rebase --continue), then rerun .pi/side-agent-finish.sh"
     exit 2
   fi
@@ -209,13 +210,13 @@ while true; do
   release_lock
 
   if [[ "$merge_status" -eq 0 ]]; then
-    echo "[side-agent-finish] Success: fast-forwarded $MAIN_BRANCH to include $BRANCH in parent checkout."
+    echo "Success: $BRANCH was merged into $MAIN_BRANCH"
     rm -f "$(pwd)/.pi/active.lock" || true
     exit 0
   fi
 
-  echo "[side-agent-finish] Parent fast-forward failed (likely $MAIN_BRANCH moved)."
-  echo "[side-agent-finish] Retrying rebase reconcile loop..."
+  echo "Merge failed (likely $MAIN_BRANCH moved)"
+  echo "Retrying loop..."
 
   sleep 1
 done
@@ -234,10 +235,10 @@ if [[ "$BRANCH" == "HEAD" ]]; then
   BRANCH=""
 fi
 
-echo "[side-agent-finish] Pushing $BRANCH..."
+echo "Pushing $BRANCH..."
 git push -u origin "$BRANCH"
 
-echo "[side-agent-finish] Opening pull request against $MAIN_BRANCH..."
+echo "Opening pull request against $MAIN_BRANCH..."
 gh pr create --base "$MAIN_BRANCH" --head "$BRANCH" --fill
 ```
 
@@ -252,24 +253,23 @@ This is a skill for the **child agent** (not this session) that tells it how to 
 ```markdown
 ---
 name: finish
-description: Rebase the branch with current work onto upstream and fast-forward it after explicit user sign-off (e.g. lgtm)
+description: Rebase the branch with current work onto parent and merge it, after user approves (e.g. 'lgtm finish')
 ---
 
 # Parallel-agent finish workflow
 
-When the user explicitly approves the work (e.g. says "LGTM", "ship it", "merge it"):
+When the user explicitly approves the work (e.g. says "LGTM", "ship it", "merge it", "lgtm finish"):
 
-1. **Confirm** the finish action with the user before doing anything.
-2. Use the bash tool to show the value of the $PI_SIDE_PARENT_REPO env var.
-3. Run the finish script and explicitly pass the found value of PI_SIDE_PARENT_REPO from prev step. Example: `PI_SIDE_PARENT_REPO="/Users/somebody/some/path" .pi/side-agent-finish.sh`
-4. If the finish script exits with code 2 (conflict rebasing child branch onto MAIN_BRANCH_VALUE):
+1. Use the bash tool to show the value of the $PI_SIDE_PARENT_REPO env var.
+2. Run the finish script and explicitly pass the found value of PI_SIDE_PARENT_REPO from prev step. Example: `PI_SIDE_PARENT_REPO="/Users/somebody/some/path" .pi/side-agent-finish.sh`
+3. If the finish script exits with code 2 (conflict rebasing child branch onto MAIN_BRANCH_VALUE):
    - Stay in this worktree
    - Resolve conflicts (`git status`, then `GIT_EDITOR=true git rebase --continue`)
    - Re-run the finish script after the rebase completes
-5. If the parent-side fast-forward fails because MAIN_BRANCH_VALUE moved ahead:
-   - The finish script retries the rebase reconcile loop automatically
-   - Parent-side integration is a bit sensitive operation as it can make big mess; solve simple issues yourself, but escalate to the user with major issues (such as dirty parent worktree)
-6. After success: report the landed commit(s). Suggest `/quit` if no further work is needed.
+4. If the merge fails because MAIN_BRANCH_VALUE moved ahead:
+   - The finish script retries the reconcile loop automatically
+   - Attempt to solve simple issues yourself, but escalate to the user with major issues (such as dirty parent worktree)
+5. After success: report the landed commit(s). Suggest `/quit` if no further work is needed.
 ```
 
 **For PR policy**, write a simpler finish skill:
@@ -277,16 +277,15 @@ When the user explicitly approves the work (e.g. says "LGTM", "ship it", "merge 
 ```markdown
 ---
 name: finish
-description: Open a PR for the branch with current work to upstream after explicit user sign-off (e.g. lgtm)
+description: Open a PR for the branch with current work to upstream after user approves (e.g. 'lgtm finish')
 ---
 
 # Parallel-agent finish workflow
 
-When the user explicitly approves the work (e.g. says "LGTM", "ship it"):
+When the user explicitly approves the work (e.g. says "LGTM", "ship it", "merge it", "lgtm finish"):
 
-1. **Confirm** with user before pushing.
-2. Run the finish script to push the branch and open a PR automatically: `.pi/side-agent-finish.sh`
-3. Suggest `/quit` if no further work is needed.
+1. Run the finish script to push the branch and open a PR automatically: `.pi/side-agent-finish.sh`
+2. Suggest `/quit` if no further work is needed.
 ```
 
 ## Phase 3: Report
@@ -298,5 +297,4 @@ Explicitly remind the user that `.pi/side-agent*` files are local runtime setup 
 Tell user they can now:
 - Start an agent: `/agent <task description>`
 - List running agents: `/agents`
-- Watch pi statusline showing active agents: ...@<number> is the tmux window to switch to.
-- Ask you (assistant) to set up and manage a flock of multiple side agents own to solve a task (you have the tools)
+- Ask you (assistant) to set up and manage a flock of multiple sideagents own to solve a task (you have the tools)
