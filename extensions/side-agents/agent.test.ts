@@ -9,6 +9,7 @@ import {
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
 	modeSpecToModelSpec,
 	normalizeAgentId,
@@ -384,7 +385,7 @@ describe("inferCurrentModeModelSpec", () => {
 		const { inferCurrentModeModelSpec } = await import("./agent.js");
 		testDir = await setupTestDir();
 
-		const ctx = { model: null } as any;
+		const ctx = { model: null } as unknown as ExtensionContext;
 		const result = await inferCurrentModeModelSpec(testDir, ctx, "medium");
 		expect(result).toBeUndefined();
 	});
@@ -408,7 +409,7 @@ describe("inferCurrentModeModelSpec", () => {
 		// ctx.model doesn't match
 		const ctx = {
 			model: { provider: "openai", id: "gpt-4" },
-		} as any;
+		} as unknown as ExtensionContext;
 		const result = await inferCurrentModeModelSpec(testDir, ctx, "medium");
 		expect(result).toBeUndefined();
 	});
@@ -436,7 +437,7 @@ describe("inferCurrentModeModelSpec", () => {
 		// ctx.model matches
 		const ctx = {
 			model: { provider: "anthropic", id: "claude-3-5-sonnet" },
-		} as any;
+		} as unknown as ExtensionContext;
 		const result = await inferCurrentModeModelSpec(testDir, ctx, "high");
 		expect(result).toBe("anthropic/claude-3-5-sonnet:high");
 	});
@@ -464,7 +465,7 @@ describe("inferCurrentModeModelSpec", () => {
 		// ctx.model matches provider/modelId but thinkingLevel differs
 		const ctx = {
 			model: { provider: "anthropic", id: "claude-3-5-sonnet" },
-		} as any;
+		} as unknown as ExtensionContext;
 		const result = await inferCurrentModeModelSpec(testDir, ctx, "high");
 		expect(result).toBeUndefined();
 	});
@@ -499,7 +500,7 @@ describe("resolveModelSpecForChild", () => {
 				cwd: testDir,
 				model: { provider: "anthropic", id: "claude-3-5-sonnet" },
 				modelRegistry: { getAvailable: () => [] },
-			} as any;
+			} as unknown as ExtensionContext;
 
 			// No model requested, thinkingLevel provided - should inherit from modes.json
 			const result = await resolveModelSpecForChild(ctx, undefined, "high");
@@ -766,7 +767,10 @@ describe("backlog.log truncation on read (getBacklogTail)", () => {
 
 		const logPath = join(testDir, "backlog.log");
 		// Write a small file (~1KB)
-		const smallLines = Array.from({ length: 20 }, (_, i) => `small line ${i}\n`);
+		const smallLines = Array.from(
+			{ length: 20 },
+			(_, i) => `small line ${i}\n`,
+		);
 		await writeFile(logPath, smallLines.join(""));
 		const originalSize = (await Bun.file(logPath).stat()).size;
 

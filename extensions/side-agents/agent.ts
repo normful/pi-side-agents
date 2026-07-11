@@ -540,9 +540,7 @@ export async function getBacklogTail(
 	if (record.logPath && (await fileExists(record.logPath))) {
 		try {
 			const raw = await fs.readFile(record.logPath, "utf8");
-			const tailed = sanitizeBacklogLines(
-				selectBacklogTailLines(raw, lines),
-			);
+			const tailed = sanitizeBacklogLines(selectBacklogTailLines(raw, lines));
 			// Truncate oversized files on read so they don't grow unbounded
 			if (raw.length > BACKLOG_FILE_MAX_SIZE) {
 				await truncateBacklogFile(record.logPath);
@@ -569,7 +567,7 @@ async function truncateBacklogFile(logPath: string): Promise<void> {
 			selectBacklogTailLines(raw, BACKLOG_TRUNCATE_KEEP_LINES),
 		);
 		if (tailed.length === 0) return;
-		const content = tailed.join("\n") + "\n";
+		const content = `${tailed.join("\n")}\n`;
 		// In-place: open r+ so we operate on the same inode as any tmux pipe
 		const fd = await fs.open(logPath, "r+");
 		try {

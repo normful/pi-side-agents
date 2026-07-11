@@ -165,7 +165,9 @@ describe("buildLaunchScript", () => {
 		});
 
 		expect(script).toContain("PI_CMD=(cco --safe");
-		expect(script).toContain('pi --skill "$CHILD_SKILLS_DIR")');
+		expect(script).toContain(
+			'pi --skill "$PI_SIDE_AGENTS_ROOT/.pi/side-agents/finish")',
+		);
 	});
 
 	test("includes ~/Library/Application Support as read-only in cco sandbox", () => {
@@ -216,7 +218,9 @@ describe("buildLaunchScript", () => {
 			disableSandbox: true,
 		});
 
-		expect(script).toContain('PI_CMD=(pi --skill "$CHILD_SKILLS_DIR")');
+		expect(script).toContain(
+			'PI_CMD=(pi --skill "$PI_SIDE_AGENTS_ROOT/.pi/side-agents/finish")',
+		);
 		expect(script).not.toContain("cco --safe");
 	});
 
@@ -479,8 +483,9 @@ describe("buildLaunchScript", () => {
 			disableSandbox: false,
 		});
 
-		expect(script).toContain("CHILD_SKILLS_DIR");
-		expect(script).toContain('pi --skill "$CHILD_SKILLS_DIR"');
+		expect(script).toContain(
+			'pi --skill "$PI_SIDE_AGENTS_ROOT/.pi/side-agents/finish"',
+		);
 	});
 
 	test("sets WORKTREE correctly with single quotes", () => {
@@ -529,7 +534,7 @@ describe("buildLaunchScript", () => {
 		expect(script).toContain("set -euo pipefail");
 		expect(script).toContain("export PI_SIDE_");
 		expect(script).toContain('cd "$WORKTREE"');
-		expect(script).toContain('"${PI_CMD[@]}"');
+		expect(script).toContain(`"${"$"}{PI_CMD[@]}"`);
 		expect(script).toContain("tmux kill-window");
 	});
 
