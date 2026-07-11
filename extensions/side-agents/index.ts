@@ -49,7 +49,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 
 	pi.registerTool({
 		name: "sideagent-start",
-		label: "SideAgent Start",
+		label: "sideagent-start",
 		description:
 			"Launch a sideagent in an isolated worktree with zero shared context. The description parameter is\n" +
 			"the sideagent's only prompt — write it as a fully self-contained task brief for a junior developer who\n" +
@@ -65,7 +65,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 			"- exact commit message\n" +
 			"- clear done-definition: what signals completion\n" +
 			"\n" +
-			"Returns sideagent id, tmuxWindowId, worktreePath, branch. SideAgent yields (waiting_user) when done or\n" +
+			"Returns sideagent id, tmuxWindowId, worktreePath, branch. sideagent yields (waiting_user) when done or\n" +
 			"blocked.",
 		parameters: Type.Object({
 			description: Type.String({
@@ -140,11 +140,11 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 
 	pi.registerTool({
 		name: "sideagent-check",
-		label: "SideAgent Check",
+		label: "sideagent-check",
 		description:
 			"Check background sideagent's current status and retrieve recent output",
 		parameters: Type.Object({
-			id: Type.String({ description: "SideAgent id returned by sideagent-start" }),
+			id: Type.String({ description: "sideagent id returned by sideagent-start" }),
 		}),
 		async execute(
 			_toolCallId,
@@ -175,12 +175,12 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 
 	pi.registerTool({
 		name: "sideagent-wait-any",
-		label: "SideAgent Wait Any",
+		label: "sideagent-wait-any",
 		description:
 			"Block and wait for any background sideagent to reach a terminal or yielding state. Use after sideagent-start or sideagent-send. Returns error if sideagent ids are unknown or already deleted",
 		parameters: Type.Object({
-			ids: Type.Array(Type.String({ description: "SideAgent id" }), {
-				description: "SideAgent ids to wait for",
+			ids: Type.Array(Type.String({ description: "sideagent id" }), {
+				description: "sideagent ids to wait for",
 			}),
 		}),
 		async execute(
@@ -212,11 +212,11 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 
 	pi.registerTool({
 		name: "sideagent-send",
-		label: "SideAgent Send",
+		label: "sideagent-send",
 		description:
 			"Send text to a background sideagent's tmux pane. For immediate interruption or forced commands, prefix prompt with: '!' to interrupt first, '/' for slash commands (e.g. '/quit' to terminate)",
 		parameters: Type.Object({
-			id: Type.String({ description: "SideAgent id returned by sideagent-start" }),
+			id: Type.String({ description: "sideagent id returned by sideagent-start" }),
 			prompt: Type.String({
 				description: "",
 			}),
