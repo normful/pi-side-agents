@@ -43,20 +43,20 @@ function resolveGitRoot(cwd: string): string {
 }
 
 function registerSideAgentTools(pi: ExtensionAPI): void {
-	if (registeredSideAgentTools.has("agent-start")) {
+	if (registeredSideAgentTools.has("sideagent-start")) {
 		return; // already registered
 	}
 
 	pi.registerTool({
-		name: "agent-start",
-		label: "Agent Start",
+		name: "sideagent-start",
+		label: "SideAgent Start",
 		description:
-			"Launch an agent in an isolated worktree with zero shared context. The description parameter is\n" +
-			"the agent's only prompt — write it as a fully self-contained task brief for a junior developer who\n" +
+			"Launch a sideagent in an isolated worktree with zero shared context. The description parameter is\n" +
+			"the sideagent's only prompt — write it as a fully self-contained task brief for a junior developer who\n" +
 			"just walked into the room cold.\n" +
 			"\n" +
 			"A complete description always includes:\n" +
-			"- absolute paths to any files the agent must read first\n" +
+			"- absolute paths to any files the sideagent must read first\n" +
 			"- per-file breakdown: source path, what to do, approach, test nature (pure TS vs React component\n" +
 			"vs hook)\n" +
 			"- inline project conventions (imports, mock patterns, assertion style) rather than \"follow\n" +
@@ -65,7 +65,7 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 			"- exact commit message\n" +
 			"- clear done-definition: what signals completion\n" +
 			"\n" +
-			"Returns agent id, tmuxWindowId, worktreePath, branch. Agent yields (waiting_user) when done or\n" +
+			"Returns sideagent id, tmuxWindowId, worktreePath, branch. SideAgent yields (waiting_user) when done or\n" +
 			"blocked.",
 		parameters: Type.Object({
 			description: Type.String({
@@ -139,12 +139,12 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 	});
 
 	pi.registerTool({
-		name: "agent-check",
-		label: "Agent Check",
+		name: "sideagent-check",
+		label: "SideAgent Check",
 		description:
-			"Check background agent's current status and retrieve recent output",
+			"Check background sideagent's current status and retrieve recent output",
 		parameters: Type.Object({
-			id: Type.String({ description: "Agent id returned by agent-start" }),
+			id: Type.String({ description: "SideAgent id returned by sideagent-start" }),
 		}),
 		async execute(
 			_toolCallId,
@@ -174,13 +174,13 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 	});
 
 	pi.registerTool({
-		name: "agent-wait-any",
-		label: "Agent Wait Any",
+		name: "sideagent-wait-any",
+		label: "SideAgent Wait Any",
 		description:
-			"Block and wait for any background agent to reach a terminal or yielding state. Use after agent-start or agent-send. Returns error if agent ids are unknown or already deleted",
+			"Block and wait for any background sideagent to reach a terminal or yielding state. Use after sideagent-start or sideagent-send. Returns error if sideagent ids are unknown or already deleted",
 		parameters: Type.Object({
-			ids: Type.Array(Type.String({ description: "Agent id" }), {
-				description: "Agent ids to wait for",
+			ids: Type.Array(Type.String({ description: "SideAgent id" }), {
+				description: "SideAgent ids to wait for",
 			}),
 		}),
 		async execute(
@@ -211,12 +211,12 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 	});
 
 	pi.registerTool({
-		name: "agent-send",
-		label: "Agent Send",
+		name: "sideagent-send",
+		label: "SideAgent Send",
 		description:
-			"Send text to a background agent's tmux pane. For immediate interruption or forced commands, prefix prompt with: '!' to interrupt first, '/' for slash commands (e.g. '/quit' to terminate)",
+			"Send text to a background sideagent's tmux pane. For immediate interruption or forced commands, prefix prompt with: '!' to interrupt first, '/' for slash commands (e.g. '/quit' to terminate)",
 		parameters: Type.Object({
-			id: Type.String({ description: "Agent id returned by agent-start" }),
+			id: Type.String({ description: "SideAgent id returned by sideagent-start" }),
 			prompt: Type.String({
 				description: "",
 			}),
@@ -252,10 +252,10 @@ function registerSideAgentTools(pi: ExtensionAPI): void {
 		},
 	});
 
-	registeredSideAgentTools.add("agent-start");
-	registeredSideAgentTools.add("agent-check");
-	registeredSideAgentTools.add("agent-wait-any");
-	registeredSideAgentTools.add("agent-send");
+	registeredSideAgentTools.add("sideagent-start");
+	registeredSideAgentTools.add("sideagent-check");
+	registeredSideAgentTools.add("sideagent-wait-any");
+	registeredSideAgentTools.add("sideagent-send");
 }
 
 export default function sideAgentsExtension(pi: ExtensionAPI) {
@@ -511,9 +511,9 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 
 	pi.registerCommand("load-side-agents-tools", {
 		description:
-			"Register side-agent tools (agent-start, agent-check, agent-wait-any, agent-send)",
+			"Register side-agent tools (sideagent-start, sideagent-check, sideagent-wait-any, sideagent-send)",
 		handler: async (_args, ctx) => {
-			if (registeredSideAgentTools.has("agent-start")) {
+			if (registeredSideAgentTools.has("sideagent-start")) {
 				ctx.hasUI && ctx.ui.notify("Side-agent tools already loaded.", "info");
 				return;
 			}
@@ -539,4 +539,11 @@ export default function sideAgentsExtension(pi: ExtensionAPI) {
 		setStatusPollContext(pi, ctx);
 		await renderStatusLine(pi, ctx).catch(() => {});
 	});
+}
+;
+}
+
+	});
+}
+;
 }

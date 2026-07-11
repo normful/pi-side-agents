@@ -900,7 +900,7 @@ export async function waitForAny(
 
 	while (true) {
 		if (signal?.aborted) {
-			return { ok: false, error: "agent-wait-any aborted" };
+			return { ok: false, error: "sideagent-wait-any aborted" };
 		}
 
 		const unknownOnFirstPass: string[] = [];
@@ -1227,7 +1227,7 @@ export function setStatusPollContext(
 	statusPollApi = pi;
 }
 
-// Helper function for agent-check tool
+// Helper function for sideagent-check tool
 export async function agentCheckPayload(
 	stateRoot: string,
 	agentId: string,

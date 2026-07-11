@@ -28,9 +28,9 @@ Practical recovery steps for common side-agent failures.
 
 ### Symptoms
 
-- `agent-check`: `{ "ok": false, "error": "Unknown agent id: ..." }`
-- `agent-wait-any`: `{ "ok": false, "error": "Unknown agent id(s): ..." }` (fails fast on first poll)
-- `agent-send`: `{ "ok": false, "message": "Unknown agent id: ..." }`
+- `sideagent-check`: `{ "ok": false, "error": "Unknown agent id: ..." }`
+- `sideagent-wait-any`: `{ "ok": false, "error": "Unknown agent id(s): ..." }` (fails fast on first poll)
+- `sideagent-send`: `{ "ok": false, "message": "Unknown agent id: ..." }`
 
 ### Why it happens
 
@@ -69,14 +69,14 @@ find ".pi/side-agents/runtime-archive/$ID" -maxdepth 3 -type f -name backlog.log
 
 - Agent status becomes `crashed`
 - Error often: `tmux window disappeared before an exit marker was recorded`
-- `agent-send` returns `tmux window is not active`
+- `sideagent-send` returns `tmux window is not active`
 
 ### Recovery
 
 1. Inspect current state (tool):
 
 ```text
-agent-check { "id": "<id>" }
+sideagent-check { "id": "<id>" }
 ```
 
 2. Inspect runtime artifacts:
@@ -91,13 +91,13 @@ tail -n 120 ".pi/side-agents/runtime/$ID/backlog.log"
 3. If tmux window still exists, try graceful stop (tool):
 
 ```text
-agent-send { "id": "<id>", "prompt": "!/quit" }
+sideagent-send { "id": "<id>", "prompt": "!/quit" }
 ```
 
 4. If tmux window is gone, treat as terminal crash:
 
 - collect backlog/error
-- spawn a replacement agent if needed (`/agent ...` or `agent-start`)
+- spawn a replacement agent if needed (`/agent ...` or `sideagent-start`)
 - clean up old failed/crashed record (see section 5)
 
 ---
@@ -130,7 +130,7 @@ ls -l "$LOCK" 2>/dev/null || echo "no registry.lock"
 rm -f ".pi/side-agents/registry.lock"
 ```
 
-3. Retry the failed action (`/agents`, `agent-check` tool, etc.).
+3. Retry the failed action (`/agents`, `sideagent-check` tool, etc.).
 
 4. If contention recurs, reduce concurrent parent sessions mutating the same registry.
 
@@ -182,7 +182,7 @@ If non-empty, preserve work first (commit/patch) before destructive cleanup.
 Use this when an agent is terminal (`failed` or `crashed`) and you want to tidy state.
 
 1. Capture diagnostics first:
-   - `agent-check` tool for `<id>`
+   - `sideagent-check` tool for `<id>`
    - save backlog/error if needed
 
 2. Preserve any useful work in the agent worktree (`git -C <worktree> status`, patch/commit).
@@ -195,7 +195,7 @@ Use this when an agent is terminal (`failed` or `crashed`) and you want to tidy 
 
 ```bash
 ID="fix-auth-leak"
-WT="../<repo>-agent-worktree-0001"   # use actual worktreePath from agent-check
+WT="../<repo>-agent-worktree-0001"   # use actual worktreePath from sideagent-check
 rm -rf ".pi/side-agents/runtime/$ID"
 rm -f "$WT/.pi/active.lock"
 ```
@@ -237,3 +237,4 @@ rm -rf .pi/side-agents/runtime/<agent-id>
 ```
 
 Prefer `/agents` for registry record cleanup to avoid manual JSON edits while another session may be writing.
+riting.

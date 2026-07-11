@@ -24,10 +24,10 @@ Run multiple Pi coding tasks in parallel without blocking the main session:
 
 ### Tools (for orchestration)
 
-- `agent-start`
-- `agent-check`
-- `agent-wait-any`
-- `agent-send`
+- `sideagent-start`
+- `sideagent-check`
+- `sideagent-wait-any`
+- `sideagent-send`
 
 These are the contract used by the Pi side-agent harness (and by other parent agents).
 
@@ -71,7 +71,7 @@ Merge critical-section lock (only if your **finish script** uses it):
 Agent IDs are **kebab-case slugs** (e.g. `fix-auth-leak`, `add-auth-tests-2`).
 
 - `/agent` generates a slug from the task (LLM-assisted when possible, with heuristic fallback).
-- `agent-start` requires an explicit `branchHint` slug.
+- `sideagent-start` requires an explicit `branchHint` slug.
 - IDs are deduplicated (`-2`, `-3`, …) against:
   - current registry entries
   - any existing `side-agent/<id>` branches in `git worktree list --porcelain`
@@ -259,7 +259,7 @@ If your finish script uses a parent-side merge critical section, it typically im
 
 ## 10) Tool contract (current)
 
-### 10.1 `agent-start`
+### 10.1 `sideagent-start`
 
 Input:
 
@@ -278,7 +278,7 @@ Notes:
 - The `description` is sent verbatim.
 - No parent context summary is added for tool-started agents.
 
-### 10.2 `agent-check`
+### 10.2 `sideagent-check`
 
 Input:
 
@@ -290,7 +290,7 @@ Output:
 
 - `{ ok: true, agent: { ... }, backlog: string[] }` or `{ ok: false, error }`
 
-### 10.3 `agent-wait-any`
+### 10.3 `sideagent-wait-any`
 
 Input:
 
@@ -304,7 +304,7 @@ Notes:
 - Fails fast on unknown ids on the first poll.
 - If all requested ids disappear from registry (often meaning they all exited successfully), returns `{ ok:false, error }`.
 
-### 10.4 `agent-send`
+### 10.4 `sideagent-send`
 
 Input:
 
@@ -316,3 +316,5 @@ Prefix rules:
 
 - `!` — send Ctrl+C first; if there is more text after `!`, wait ~300ms, then send it.
 - `/` — forwarded as-is; Pi interprets it as a slash command.
+sh command.
+nd.
