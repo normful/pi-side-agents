@@ -16,7 +16,23 @@ Update setup: Chat with the user about what needs changing, use file examples be
 Upgrade setup to new pi-side-agents version: Diff this file with the current backup `.pi/side-agents/agent-start~/`
 and discuss the changes to apply (or not) with the user. When upgrade is finished, update the backup to the current version.
 
-**Important (local-only files):** everything this skill creates is under `.pi/` and is runtime/local configuration. Do **not** `git add`, `git add -f`, or commit these files. They should remain untracked. If they were accidentally committed, remove them from git tracking while keeping them locally.
+**`.gitignore` and commit policy:** Most files under `.pi/` should be committed. Only two paths are runtime-only and must be gitignored. Before creating phase-2 files, execute this workflow:
+
+1. If the repo has no `.gitignore` yet, create one.
+2. Read the current `.gitignore`. If these patterns are not already present, append them:
+   ```gitignore
+   .pi/side-agents/registry.json
+   .pi/side-agents/runtime/
+   ```
+3. After creating all phase-2 files (below), run:
+   ```bash
+   git add .pi/side-agent-start.sh .pi/side-agent-finish.sh .pi/side-agent-bootstrap.sh
+   git add .pi/side-agents/agent-start~/
+   git add .pi/side-agents/finish/
+   git add .gitignore
+   ```
+4. Commit everything with a message like `chore: add pi-side-agents setup`.
+5. Verify no `.pi` runtime files leaked into the commit: `git diff --cached --name-only | grep -c '\.pi/side-agents/registry\.json'` should be 0.
 
 ## Phase 1: Interview
 
@@ -292,9 +308,20 @@ When the user explicitly approves the work (e.g. says "LGTM", "ship it", "merge 
 
 Tell the user which files were created, updated, or skipped, including backup/reference files, and how to proceed.
 
-Explicitly remind the user that `.pi/side-agent*` files are local runtime setup and should stay untracked (not committed to git).
+Remind the user that the commit was already created in the `.gitignore` check step above, covering:
+
+| File | Status |
+|------|--------|
+| `.pi/side-agent-start.sh` | committed |
+| `.pi/side-agent-finish.sh` | committed |
+| `.pi/side-agents/agent-start~/` | committed (backup of SKILL.md) |
+| `.pi/side-agents/finish/SKILL.md` | committed |
+| `.pi/side-agents/registry.json` | gitignored (runtime state) |
+| `.pi/side-agents/runtime/` | gitignored (per-agent live data) |
+| `.gitignore` | updated and committed |
 
 Tell user they can now:
-- Start an agent: `/agent <task description>`
+- Start an agent protected by cco: `/safe-agent <task description>`
+- Start an agent without cco protection: `/unsafe-agent <task description>`
 - List running agents: `/agents`
 - Ask you (assistant) to set up and manage a flock of multiple sideagents own to solve a task (you have the tools)
