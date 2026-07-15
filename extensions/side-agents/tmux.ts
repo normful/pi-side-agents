@@ -163,11 +163,22 @@ fi
 		? `PI_CMD=(cco --safe --add-dir "~/.config:ro" --add-dir "~/.local:rw" --add-dir "~/.bun:ro" --add-dir "~/Library/Application Support/:ro" --add-dir "~/code/ai-agents-configs:ro" --add-dir "$(dirname "$PARENT_SESSION"):ro" --add-dir "$RESOLVED_TMPDIR:rw" --add-dir "$PARENT_REPO:rw" --add-dir "$STATE_ROOT:rw" --add-dir "$RUNTIME_DIR:rw" pi --skill "$PI_SIDE_AGENTS_ROOT/.pi/side-agents/finish")`
 		: `PI_CMD=(pi --skill "$PI_SIDE_AGENTS_ROOT/.pi/side-agents/finish")`;
 
+	const envFilterBlock = `ALLOWED_ENV_VARS=(PATH HOME USER TERM TERM_PROGRAM TERMINFO_DIRS TERMINFO COLORTERM TERM_PROGRAM_VERSION)
+# Build env -i arguments as an array to handle special characters safely
+ALLOWED_ENV_ARGS=()
+for v in "\${ALLOWED_ENV_VARS[@]}"; do
+  if [[ -n "\${!v+x}" ]]; then
+    ALLOWED_ENV_ARGS+=("$v=\${!v}")
+  fi
+done
+`;
+
 	return `#!/usr/bin/env bash
 set -euo pipefail
 
 ${ccoCheckBlock}
 
+${envFilterBlock}
 AGENT_ID=${agentId}
 PARENT_SESSION=${parentSession}
 PARENT_REPO=${parentRepo}
@@ -221,7 +232,7 @@ fi
 PI_CMD+=(--append-system-prompt "The 'finish' skill is at \$WORKTREE/.pi/side-agents/finish/SKILL.md. ALWAYS git commit all changes before using the 'finish' skill.")
 
 set +e
-"\${PI_CMD[@]}" "$(cat "$PROMPT_FILE")"
+env -i "\${ALLOWED_ENV_ARGS[@]}" "\${PI_CMD[@]}" "$(cat "$PROMPT_FILE")"
 exit_code=$?
 set -e
 
